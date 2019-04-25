@@ -12,7 +12,7 @@
 * One thing I never thought to ask you - are all of your domain controllers running Windows Server 2012 or better?
 
 * The CSV provided today has "NewUser" but no CopUserTemplate, DB, or AddressBookPolicy defined fields.  Why wouldn't you want to use the ''Copy user template' on NewUser requests?
-
+*
 #>
 
 function Format-CsvValue {
