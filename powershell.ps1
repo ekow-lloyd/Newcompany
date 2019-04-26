@@ -128,11 +128,15 @@ Try {
       #>
     } #=>if get-aduser
 
-    New-ADUser @Parameters
+    $oNewUser = New-ADUser @Parameters
+
     Write-Verbose "[PASS] Created $FullName "
     $successUsers += $FullName + "," +$SAM
 } Catch {
-  Write-Warning "[ERROR]Can't create user [$($FullName)] : $_"
+  $ErrorMessage = $_.Exception.Message
+  $FailedItem = $_.Exception.ItemName
+  Write-Warning "[ERROR]Can't create user [$($FullName)] : $_ . Failed with error $ErrorMessage on failed item $FailedItem"
+
   $failedUsers += $FullName + "," +$SAM + "," +$_
 }#=>catch
 } #=>ForEach User
