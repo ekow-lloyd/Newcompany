@@ -181,4 +181,4 @@ Write-Host "$fu user creation unsuccessful " -NoNewline -ForegroundColor red
 Write-Host "$su Users Successfully Created "  -NoNewline -ForegroundColor green
 Write-Host " Review LogsFolder" -ForegroundColor Magenta
 Start-Sleep -Seconds 5
-Invoke-Item $LogFolder #is this to open the Widnows Explorer view of your log folder?
+Invoke-Item $LogFolder #is this to open the Widnows Explorer view of your log folder? yes, for both the failed and succesfully created users
