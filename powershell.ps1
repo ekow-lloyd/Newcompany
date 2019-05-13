@@ -100,10 +100,12 @@ Try {
         'GivenName'             = $FirstName 
         'Surname'               = $Lastname  
         'AccountPassword'       = $password 
-        'ChangePasswordAtLogon' = $true 
+        'ChangePasswordAtLogon' = $true
         'Enabled'               = $true 
         'Path'                  = $OU
         'PasswordNeverExpires'  = $False
+        'Company'               = $company
+        
 
       } #=>Parameters
 
