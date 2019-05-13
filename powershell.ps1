@@ -82,22 +82,16 @@ ForEach($User in $Users) {
   Write-Debug "UPN (Script): $UPN"
 
   $OU = $user.OU #uncommented and changed to read the "OU" header in the CSV file.
+  $OU = $OU.Replace('"','')
   Write-Debug "OU (Script): $OU"
 
   $email = -join ($Sam,$dnsroot)
   Write-Debug "Email (Script): $Email"
-  #your CSV file contains headers that you aren't bringing into the script
-  #Examples;
-  #missing 'Company'
-  #missing StartDate
-  #missing EndDate
+
 
 Try {
     if (!(get-aduser -Filter {samaccountname -eq "$SAM"})){
-      #your CSV file contains headers that do not exist in your $Parameters hash table and they are as follows;
-      #no 'Company' mapping.
-      #no 'StartDate' mapping.
-      #no 'EndDate' mapping.
+
       $Parameters = @{
         'SamAccountName'        = $Sam
         'UserPrincipalName'     = $UPN 
@@ -113,19 +107,8 @@ Try {
 
       } #=>Parameters
 
-      <#
-      #This section may no longer be necessary if you are going to be copying a user 'template' from AD vs settign it in code...
-      #If you still want to maintain the the 'template' in code vs in AD then we'll need to have a "Type" field defined in the CSV file.
-      switch ($user.Type) { 
-          "Staff" { 
-            $Parameters['Path'] = "OU=Staff,OU=Cloudcom,DC=E-L,DC=local"
-            }
-          "Admin" { 
-            #Same as above with 'staff' but for Administration users.
-            $Parameters['Path'] = "OU=Administration,OU=Cloudcom,DC=E-L,DC=local"
-          }
-      #>
     } #=>if get-aduser
+    Write-Debug ([PSCustomObject]$Parameters)
 
     $oNewUser = New-ADUser @Parameters
 
@@ -157,4 +140,4 @@ Write-Host "$fu user creation unsuccessful " -NoNewline -ForegroundColor red
 Write-Host "$su Users Successfully Created "  -NoNewline -ForegroundColor green
 Write-Host " Review LogsFolder" -ForegroundColor Magenta
 Start-Sleep -Seconds 5
-Invoke-Item $LogFolder #is this to open the Widnows Explorer view of your log folder? yes, for both the failed and succesfully created users
+Invoke-Item $LogFolder
