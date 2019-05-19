@@ -106,13 +106,8 @@ Param(
     [Parameter(Mandatory=$true,ParameterSetName="Init")]
     [bool]
     $isScheduled,
-    # Whether or not this is a "new user" request or "change user" request.
-    [Parameter(Mandatory=$true,ParameterSetName="Scheduled")] #include $requestType in both (scheudled and init) parameter sets.
-    [Parameter(Mandatory=$true,ParameterSetName="Init")]
-    [ValidateSet('new','change')] #only two options can be passed to this parameter "new" or "changed" and it is required.
-    [string]
-    $requestType,
-    # Let's define all required parameters when creating a user when it's a scheduled task.  Scheduled tasks require additional parameters because the initial CSV that was loaded will no longer be used.  Instead, all values from the CSV will be stored as arguments (parameters) to the script.
+
+    # Let's define all required parameters when creating a user when it's a scheduled task.  Scheduled tasks require additional parameters because the initial CSV that was loaded will no longer be used.  Instead, all values from the CSV will be stored as arguments (parameters) to the script within the scheduled task.
     # First Name
     [Parameter(Mandatory=$true,ParameterSetName="Scheduled")]
     [string]
@@ -129,14 +124,6 @@ Param(
     [Parameter(Mandatory=$true,ParameterSetName="Scheduled")]
     [string]
     $sUsername,
-    # OU
-    [Parameter(Mandatory=$true,ParameterSetName="Scheduled")]
-    [string]
-    $sOU,
-    # start date
-    [Parameter(Mandatory=$true,ParameterSetName="Scheduled")]
-    [string]
-    $sStartDate,
     # end date
     [Parameter(Mandatory=$true,ParameterSetName="Scheduled")]
     [string]
@@ -144,14 +131,25 @@ Param(
     # company
     [Parameter(Mandatory=$true,ParameterSetName="Scheduled")]
     [string]
-    $sCompany
+    $sCompany,
+    #copyuser name
+    [Parameter(Mandatory=$true,ParameterSetName="Scheduled")]
+    [string]
+    $sCopyUser
 )
 
 $DebugPreference = "Continue"
 $VerbosePreference = "Continue"
 $ErrorActionPreference = "Stop"
-$LogFolder = "$env:userprofile\desktop\logs" #log file location.
 
+$LogFolder = "$env:userprofile\desktop\logs" #log file location.
+$TranscriptLog = -join($LogFolder,"\transcript.log")
+Start-Transcript -Path $TranscriptLog -Append -Force
+$csvPath = "C:\temp\csvfiles\" #changeme - Location where the website is delivering the CVS files.  Only a directory path is needed, do not enter a full path to a specific CSV file.
+$a = 1;
+$b = 1;
+$failedUsers = @()
+$successUsers = @()
 
 function Format-CsvValue {
     [CmdletBinding()]
@@ -198,73 +196,61 @@ if (!(Get-module ActiveDirectory )) { #checking if the ActiveDirectory module is
 } #=if get-Module
 
 if (!($isScheduled)) {
-    Write-Debug "This is not a scheduled task so we can safely assume this is an initial read of a CSV file.  Looking for which CSV file to process..."
-
-    switch ($requestType) {
-        "New" { $csvPath = "C:\temp\new_cloudcom.csv" } #changeme
-        "Change" {$csvPath = "C:\temp\change_cloudcom.csv"} #changeme
-        Default {
-            #This is a problem.  $requestType is a mandatory field and it should have a value of New or Change but it doesn't so this is a hard error. Write the error and quit the script.
-            Write-Output "Error determining requestType which means we don't know which CSV file to choose.  This is a fatal error." | Out-File "$LogFolder\error.log"
-            Throw "Error determining requestType which means we don't know which CSV file to choose.  This is a fatal error."
-        }
-    }
-
-    #import our CSV file.
-    try {
-        $Users = Import-CSV $csvPath
-    }
-    catch {
-        Write-Output "Unable to import our CSV file: $csvPath. This is a fatal error with error: $Error[0].Exception.Message" | Out-File "$LogFolder\error.log"
-        Throw $Error[0].Exception.Message
-    }#=> try $Users
-
-    #imported our CSV file properly.  Let's process the file for new users...
-    ForEach ($User in $Users){
-        #debugging purposes...
-        Write-Debug "First Name (CSV): $($User.Firstname)"
-        Write-Debug "Last Name (CSV): $($User.Lastname)"
-        Write-Debug "SAM (CSV): $($User.Sam)"
-        Write-Debug "OU (CSV): $($User.OU)"
-        Write-Debug "StartDate (CSV): $($User.startdate)"
-
-        Write-Debug "End Date (CSV): $($User.enddate)"
-        Write-Debug "Company (CSV): $($User.Company)"
-        #=>debugging purposes.
-
-        #Let's properly format all the values in this *ROW* of the CSV. Trim() where necessary and change to Title Case where necessary - also create a new variable so we can use it later when creating the user in AD using the New-ADuser cmdlet.
-        $FirstName = Format-CsvValue -isTitleCase $true -sValue $User.FirstName #trim and title case
-        $LastName = Format-CsvValue -isTitleCase $true -sValue $User.LastName #trim and title case.
-        $SAM = Format-CsvValue -isTitleCase $false -sValue $User.Sam #trim only.
-        $Username = (Format-CsvValue -isTitleCase $false -sValue $user.Username).ToLower #trim and make lowercase.
-        $OU = (($user.OU).Trim()).Replace('"','') # Trim whitespace and delete the double quotes that may exist in the CSV file.
-        $StartDate = Format-CsvValue -isTitleCase $false -sValue $User.startdate #trim only.
-        $EndDate = Format-CsvValue -isTitleCase $false -sValue $User.enddate #trim only.
-        $Company = Format-CsvValue -isTitleCase $false -sValue $User.company #trim only since company names are rather specific on how they're spelled out.
-        #=> End of CSV values.
-
-        #Let's build other necessary variables that are required parameters for the New-ADuser cmdlet out of the information provided by the CSV file or other sources...
-        $FullName = -join($($FirstName)," ",$($LastName)) #join $Firstname and $Lastname and a space to get FullName
-        $DNSroot = "@$((Get-ADDomain).dnsroot)"
-        $UPN = -join($Username, $dnsroot)
+    Write-Debug "This is not a scheduled task so we can safely assume this is an initial read of a CSV file. Looking for all CSV files in $($csvPath) that are NOT readonly."
+    #since we are anticipating *dynamically* named CSV files let's find all CSV files we have yet to process.
+    $csvFiles = Get-ChildItem -Path $csvPath -Attributes !readonly+!directory -Filter "*.csv"
+    Write-Debug '$csvFiles: ' $csvFiles
+    if ($csvFiles) {
+        Write-Debug "Found unprocessed CSV files..."
+        foreach ($csvFile in $csvFiles) {
+            Write-Debug "Processing CSV file $($csvFile.FullName)"
+            try {
+                $Users = Import-CSV $csvFile.FullName
+            }
+            catch {
+                Write-Output "Unable to import our CSV file: $($csvFile.FullName). This is a fatal error with error: $Error[0].Exception.Message"
+                Throw "There was an error importing our CSV file.  Error returned $Error[0].Exception.Message"
+            }#=> try $Users
         
-
-        $oStartDate = [datetime]::ParseExact(($User.StartDate).Trim(), "dd/MM/yyyy", $null) #This converts the CSV "startdate" field from a string to a datetime object.
-        Write-Debug "StartDate Object (Script): $oStartDate"
-
-
+            #imported our CSV file properly.  Let's process the file for new users...
+            ForEach ($User in $Users){
+                #debugging purposes...
+                Write-Debug "First Name (CSV): $($User.Firstname)"
+                Write-Debug "Last Name (CSV): $($User.Lastname)"
+                Write-Debug "StartDate (CSV): $($User.startdate)"
+                Write-Debug "End Date (CSV): $($User.enddate)"
+                Write-Debug "Company (CSV): $($User.Company)"
+                #=>debugging purposes.
         
+                #Let's properly format all the values in this *ROW* of the CSV. Trim() where necessary and change to Title Case where necessary - also create a new variable so we can use it later when creating the user in AD using the New-ADuser cmdlet.
+                $FirstName = Format-CsvValue -isTitleCase $true -sValue $User.FirstName #trim and title case
+                $LastName = Format-CsvValue -isTitleCase $true -sValue $User.LastName #trim and title case.
+                $Email = Format-CsvValue -sValue $User.Email #trim only.
+                $StartDate = Format-CsvValue -sValue $User.startdate #trim only.
+                $EndDate = Format-CsvValue -sValue $User.enddate #trim only.
+                $Company = Format-CsvValue -sValue $User.company #trim only since company names are rather specific on how they're spelled out.
+                if ($csvFile.Name -like "NU*") {
+                    #This csvFile that we're working on seems to be a New User request as defined by the "NU" in the CSV file name so we add more details.
+                    $copyUser = -join($csvFile.copyuser, " ", $csvFile.copyuserLN)
+                }
+                #=> End of CSV values.
 
-        $FullName = -join ($($User.FirstName), " ", $($User.LastName)) #not using Format-CsvValue here because that was already done for $FirstName and $LastName vars seperately
-
-
-
-
-    }#=>ForEach $user !$isScheduled
-
+                #Let's build other necessary variables that are required parameters for the New-ADuser cmdlet out of the information provided by the CSV file or other sources...
+                $FullName = -join($($FirstName)," ",$($LastName)) #join $Firstname and $Lastname and a space to get FullName
+                $SAM = (-join(($FirstName).Substring(0,1),$LastName)).ToLower() #this assumes that your SAM naming convention is firstinitialLASTNAME and makes everything lowercase.
+                $Username = (-join($FirstName,".",$LastName)).ToLower() #this assumes that your usernames have a naming convention of firstname.lastname and makes everything lowercase.
+                $DNSroot = "@$((Get-ADDomain).dnsroot)"
+                $UPN = -join($Username, $dnsroot)
+                $Password = (ConvertTo-SecureString -AsPlainText 'Cloudcom.1' -Force)
+                $oStartDate = [datetime]::ParseExact(($User.StartDate).Trim(), "dd/MM/yyyy", $null) #This converts the CSV "startdate" field from a string to a datetime object so we can use it for comparison.
+                Write-Debug "StartDate Object (Script): $($oStartDate)"
+            }#=>ForEach $user !$isScheduled
+        }#=>foreach $csvFile
+    }#=>if $csvFiles
+    else {
+        Write-Debug "No CSV files found in $($csvPath) that require processing.  Nothing to do this round."
+        Stop-Transcript
+        exit
+    }#=>else $csvFiles
 }#=>if !$isScheduled
-
-$a = 1;
-$b = 1;
-$failedUsers = @()
-$successUsers = @()
+Stop-Transcript
