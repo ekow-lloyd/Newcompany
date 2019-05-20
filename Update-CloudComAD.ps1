@@ -372,7 +372,6 @@ if (!($isScheduled)) {
                     $changeUserAD = @{
                         'SamAccountName'            = $SAM
                         'UserPrincipalName'         = $UPN
-                        'Name'                      = $FullName
                         'Company'                   = $Company
                         'EmailAddress'              = $Email
                         'GivenName'                 = $FirstName
