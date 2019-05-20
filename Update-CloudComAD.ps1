@@ -377,7 +377,8 @@ if (!($isScheduled)) {
                         'AccountExpirationDate'     = $oEndDate
                     }#=>$changeUserAD
                     try {
-                        $oChangeADUser = Get-ADUser -Filter {mail -eq $Email} -ErrorAction 'Stop' | Set-ADUser @changeUserAD -ErrorAction 'Stop'
+                        $oChangeADUser = Get-ADUser -Filter {mail -eq $Email} -ErrorAction 'Stop'
+                        Set-ADUser $oChangeADUser @changeUserAD -ErrorAction 'Stop'
                     }
                     catch {
                         Write-Debug "Unable to change user $($FullName) in AD. Error is `n`n $Error"
