@@ -396,8 +396,6 @@ if (!($isScheduled)) {
     }#=>if $csvFiles
     else {
         Write-Debug "No CSV files found in $($csvPath) that require processing.  Nothing to do this round."
-        Stop-Transcript
-        exit 0
     }#=>else $csvFiles
 }#=>if !$isScheduled
 else {
