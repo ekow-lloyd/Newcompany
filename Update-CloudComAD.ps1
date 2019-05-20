@@ -201,11 +201,7 @@ function Format-CsvValue {
     }
 } #=>Format-CsvValue
 
-if (!(Get-module ActiveDirectory )) { #checking if the ActiveDirectory module is loaded...
-    Write-Debug "ActiveDirectory module not loaded. Importing..."
-    Import-Module ActiveDirectory
-    Clear-Host
-} #=if get-Module
+Import-Module ActiveDirectory
 
 if (!($isScheduled)) {
     Write-Debug "This is not a scheduled task so we can safely assume this is an initial read of a CSV file. Looking for all CSV files in $($csvPath) that are NOT readonly."
