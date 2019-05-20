@@ -350,8 +350,7 @@ if (!($isScheduled)) {
                         $taskaction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -windowStyle Hidden -Command `"& $($ScriptFullName) -isScheduled $true -pSAM $($SAM) -pUPN $($UPN) -pFullName $($FullName) -pCompany $($Company) -pEmail $($Email) -pFirstName $($FirstName) -pLastName $($LastName) -pEndDate $($EndDate) -pCopyUser $($copyuser)`""
                         $tasktrigger = New-ScheduledTaskTrigger -Once -At ($oStartDate).AddHours(-48)
                         try {
-                            $ErrorActionPreference = 'stop'
-                            $taskregister = Register-ScheduledTask -Action $taskaction -Trigger $tasktrigger -TaskName "Add AD User - $($FullName)" -Description "Automatic creation of AD User $($FullName) 48 hours prior to the user's startdate."
+                            $taskregister = Register-ScheduledTask -Action $taskaction -Trigger $tasktrigger -TaskName "Add AD User - $($FullName)" -Description "Automatic creation of AD User $($FullName) 48 hours prior to the user's startdate." -ErrorAction 'Stop'
                         }
                         catch {
                             Write-Warning $_
@@ -378,7 +377,7 @@ if (!($isScheduled)) {
                         'AccountExpirationDate'     = $oEndDate
                     }#=>$changeUserAD
                     try {
-                        $oChangeADUser = Get-ADUser -Filter {mail -eq $Email} | Set-ADUser @changeUserAD
+                        $oChangeADUser = Get-ADUser -Filter {mail -eq $Email} -ErrorAction 'Stop' | Set-ADUser @changeUserAD -ErrorAction 'Stop'
                     }
                     catch {
                         Write-Debug "Unable to change user $($FullName) in AD. Error is `n`n $Error"
