@@ -327,7 +327,7 @@ if (!($isScheduled)) {
                             }
                             #Adding user went well..
                             Write-Debug "We created our new user $($FullName) in AD."
-                            $successUsers += -join($FullName,",",$SAM,"Successfully created new AD user.")
+                            $successUsers += -join($FullName,",",$SAM,",","Successfully created new AD user.")
                         }#=>else get-aduser
 
 
@@ -384,7 +384,7 @@ if (!($isScheduled)) {
                     } #=> if not $oChangeADUser
                     else {
                         Write-Debug "Unable to change user $($FullName) in AD."
-                        $successUsers += -join($FullName,",",$SAM,"Successfully changed AD user $($FullName)")
+                        $successUsers += -join($FullName,",",$SAM,",","Successfully changed AD user $($FullName)")
                     } #=> else $oChangeADUser
                 }#=> elseif $csvFile.name -like CU*
             }#=>ForEach $user !$isScheduled
@@ -447,7 +447,7 @@ else {
                 continue
             } else {
                 Write-Debug "We created our new user $($pFullName) in AD."
-                $successUsers += -join($pFullName,",",$pSAM,"Successfully created new AD user.")
+                $successUsers += -join($pFullName,",",$pSAM,",","Successfully created new AD user.")
             }#=>if/else $oNewADUser
         }#=>if/else $templateuser
     }#=>else get-ADUser
