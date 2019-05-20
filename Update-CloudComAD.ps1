@@ -248,7 +248,8 @@ if (!($isScheduled)) {
     Write-Debug "This is not a scheduled task so we can safely assume this is an initial read of a CSV file. Looking for all CSV files in $($csvPath) that are NOT readonly."
     #since we are anticipating *dynamically* named CSV files let's find all CSV files we have yet to process.
     $csvFiles = Get-ChildItem -Path $csvPath -Filter "*.csv" -Attributes !readonly+!directory
-    Write-Debug "`$csvFiles: $($csvFiles)"
+    $csvCount = ($csvFiles | Measure-Object).Count
+    Write-Debug "Found $($csvCount) CSV files in $($csvPath) to process: `n`n `$csvFiles: $($csvFiles)"
     if ($csvFiles) {
         Write-Debug "Found unprocessed CSV files..."
         foreach ($csvFile in $csvFiles) {
@@ -257,8 +258,20 @@ if (!($isScheduled)) {
                 $Users = Import-CSV $csvFile.FullName
             }
             catch {
-                Write-Output "Unable to import our CSV file: $($csvFile.FullName). This is a fatal error with error: $Error[0].Exception.Message"
-                Throw "There was an error importing our CSV file.  Error returned $Error[0].Exception.Message"
+                
+                
+                #We need to check if the csvFiles count is greater than 1. If it is, we can move to the next file. If it's not, we need to throw an error and exit this script.
+                if ($csvCount -gt '1') {
+                    Write-CustomEventLog -message "Unable to import CSV file: $($csvFile.FullName). This is a fatal error for this csv file. Continuing to next file. Error message is: `n`n $($Error[0].Exception.Message)" -entryType "Warning"
+                    Write-Debug "Unable to import our CSV file: $($csvFile.FullName). This is a fatal error for this CSV file.  Continuing to next file. Error message is: $Error[0].Exception.Message"
+                    Continue
+                } else {
+                    Write-CustomEventLog -message "Unable to import CSV file: $($csvFile.FullName). This is a fatal error for this csv file and this script. Exiting script. Error message is: `n`n $($Error[0].Exception.Message)" -entryType "Error"
+                    Write-Debug "Unable to import our CSV file: $($csvFile.FullName). This is a fatal error for this CSV file and this script. Exiting script. Error message is: $Error[0].Exception.Message"
+                    Throw $csvFile.FullName
+                }
+                
+
             }#=> try $Users
         
             #imported our CSV file properly.  Let's process the file for new users...
