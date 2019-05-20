@@ -105,10 +105,9 @@ PS> New-CloudComUser.ps1 -requestType New -isScheduled $true -sFristName "John" 
 Param(
     # Whether or not this is a scheduled task...
     [Parameter(Mandatory=$true,ParameterSetName="Scheduled")] #include $isScheduled in both (scheudled and init) parameter sets.
-    [Parameter(Mandatory=$true,ParameterSetName="Init")]
+    #[Parameter(Mandatory=$true,ParameterSetName="Init")]
     [bool]
     $isScheduled,
-
     # Let's define all required parameters when creating a user when it's a scheduled task.  Scheduled tasks require additional parameters because the initial CSV that was loaded will no longer be used.  Instead, all values from the CSV will be stored as arguments (parameters) to the script within the scheduled task.
     # First Name
     [Parameter(Mandatory=$true,ParameterSetName="Scheduled")]
