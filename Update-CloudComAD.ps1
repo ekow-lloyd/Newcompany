@@ -147,6 +147,7 @@ Param(
     [string]
     $pEmail
 )
+$PSCmdlet.ParameterSetName
 
 $DebugPreference = "Continue" #comment this line out when you don't want to enable the debugging output.
 $VerbosePreference = "Continue"
