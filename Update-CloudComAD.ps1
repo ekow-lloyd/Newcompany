@@ -350,7 +350,7 @@ if (!($isScheduled)) {
                             Write-Warning $_
                         }
                         $findTask = Get-ScheduledTask -TaskName "Add AD User - $($FullName)"
-                        if(not($findTask)) {
+                        if(-not($findTask)) {
                             Write-Debug "Our scheduled task | Add AD User - $($FullName) | was not created."
                             Write-Output "Our scheduled task | Add AD User - $($FullName) | was not created."
                         } else {
@@ -373,7 +373,7 @@ if (!($isScheduled)) {
                     }#=>$changeUserAD
 
                     $oChangeADUser = Get-ADUser -Filter {mail -eq $Email} | Set-ADUser @changeUserAD
-                    if (not($oChangeADUser)) {
+                    if (-not($oChangeADUser)) {
                         Write-Debug "Unable to change user $($FullName) in AD."
                         $failedUsers+= -join($Fullname,",",$SAM,",","Unable to change user $($Fullname) in AD.")
                     } #=> if not $oChangeADUser
@@ -385,7 +385,7 @@ if (!($isScheduled)) {
             }#=>ForEach $user !$isScheduled
             Write-Debug "Renaming our current csv file $($csvFile.FullName) and addding a .done extension. Also making the file read-only."
             Rename-Item -Path $csvFile.FullName -NewName "$($csvFile.FullName).done" -Force
-            Set-ItemProperty -Path $($csvFile.FullName).done -name IsReadOnly -Value $true
+            Set-ItemProperty -Path "$($csvFile.FullName).done" -name IsReadOnly -Value $true
         }#=>foreach $csvFile
     }#=>if $csvFiles
     else {
