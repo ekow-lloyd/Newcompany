@@ -314,10 +314,17 @@ if (!($isScheduled)) {
                             }#=>if/else $templateuser
 
                             Write-Debug "Adding user $($FullName) to AD with the following paramaters; `n $($newUserAD)"
-                            $oNewADUser = New-ADUser @newUserAD
+                            try {
+                                $oNewADUser = New-ADUser @newUserAD                                
+                            }
+                            catch {
+                                Write-Debug "Unable to create new user $($FullName) to AD.  Error message `n`n $Error"
+                            }
+
+
                             if(-not($oNewADUser)) {
-                                Write-Debug "Something went wrong with adding our new $($FullName) user to AD."
-                                $failedUsers+= -join($Fullname,",",$SAM,",","We were unable to add our new user $($FullName) to AD. Moving to next user..")
+                                Write-Debug "Something went wrong with adding our new $($FullName) user to AD. `n`n $error"
+                                $failedUsers+= -join($Fullname,",",$SAM,",","We were unable to add our new user $($FullName) to AD. `n`n $error `n`n Moving to next user...")
                                 continue
                             } else {
                                 Write-Debug "We created our new user $($FullName) in AD."
@@ -352,11 +359,11 @@ if (!($isScheduled)) {
                         }
                         $findTask = Get-ScheduledTask -TaskName "Add AD User - $($FullName)"
                         if(-not($findTask)) {
-                            Write-Debug "Our scheduled task | Add AD User - $($FullName) | was not created."
-                            Write-Output "Our scheduled task | Add AD User - $($FullName) | was not created."
+                            Write-Debug "Our scheduled task | Add AD User - $($FullName) | was NOT created."
+                            Write-Output "Our scheduled task | Add AD User - $($FullName) | was NOT created."
                         } else {
                             Write-Debug "Our scheduled task | Add AD User - $($FullName) | was created."
-                            Write-Output "Our scheduled task | Add AD User - $($FullName) | was NOT created."
+                            Write-Output "Our scheduled task | Add AD User - $($FullName) | was created."
                         } #=>if/else not $findTask
                     }#=>if/get-date -ge startdate-48
                 }#=>if $csvFile.name NU*
