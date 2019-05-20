@@ -276,7 +276,7 @@ if (!($isScheduled)) {
                         Write-Debug "$(Get-Date) (current script run time/date) is greater than or equal to 48 hours minus employee start date: $($oStartDate).AddHours(-48)) so we are creating the user immediately."
 
                         #Checking to see if a user already exists in AD with the same email address...
-                        if (Get-AdUser -Filter "mail -eq $Email") {
+                        if (Get-AdUser -Filter {mail -eq $Email}) {
                             Write-Debug "A user with email address $($email) already exists in AD.  We cannot add this user."
                             $failedUsers+= -join($Fullname,",",$SAM,",","A user with email address $($email) already exists in AD. Skipping this user.")
                             Continue #go to next csv record.
