@@ -372,7 +372,7 @@ if (!($isScheduled)) {
                         'AccountExpirationDate'     = $oEndDate
                     }#=>$changeUserAD
 
-                    $oChangeADUser = Set-ADUser -filter {mail -eq $Email}
+                    $oChangeADUser = Get-ADUser -Filter {mail -eq $Email} | Set-ADUser @changeUserAD
                     if (not($oChangeADUser)) {
                         Write-Debug "Unable to change user $($FullName) in AD."
                         $failedUsers+= -join($Fullname,",",$SAM,",","Unable to change user $($Fullname) in AD.")
