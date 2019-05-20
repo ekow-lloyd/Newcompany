@@ -376,16 +376,17 @@ if (!($isScheduled)) {
                         'Surname'                   = $LastName
                         'AccountExpirationDate'     = $oEndDate
                     }#=>$changeUserAD
+                    try {
+                        $oChangeADUser = Get-ADUser -Filter {mail -eq $Email} | Set-ADUser @changeUserAD
+                    }
+                    catch {
+                        Write-Debug "Unable to change user $($FullName) in AD. Error is `n`n $Error"
+                        $failedUsers+= -join($Fullname,",",$SAM,",","Unable to change user $($Fullname) in AD. $Error")
+                    }
+                    #change user request was fine...
+                    Write-Debug "Successfully changed AD user $($FullName)"
+                    $successUsers += -join($FullName,",",$SAM,",","Successfully changed AD user $($FullName)")
 
-                    $oChangeADUser = Get-ADUser -Filter {mail -eq $Email} | Set-ADUser @changeUserAD
-                    if (-not($oChangeADUser)) {
-                        Write-Debug "Unable to change user $($FullName) in AD."
-                        $failedUsers+= -join($Fullname,",",$SAM,",","Unable to change user $($Fullname) in AD.")
-                    } #=> if not $oChangeADUser
-                    else {
-                        Write-Debug "Unable to change user $($FullName) in AD."
-                        $successUsers += -join($FullName,",",$SAM,",","Successfully changed AD user $($FullName)")
-                    } #=> else $oChangeADUser
                 }#=> elseif $csvFile.name -like CU*
             }#=>ForEach $user !$isScheduled
             Write-Debug "Renaming our current csv file $($csvFile.FullName) and addding a .done extension. Also making the file read-only."
