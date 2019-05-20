@@ -313,23 +313,21 @@ if (!($isScheduled)) {
                                 $newUserAD['Path'] = $OU
                             }#=>if/else $templateuser
 
-                            Write-Debug "Adding user $($FullName) to AD with the following paramaters; `n $($newUserAD)"
+                            Write-Debug "Adding user $($FullName) to AD with the following paramaters; `n $($newUserAD | Out-String)"
                             try {
                                 $oNewADUser = New-ADUser @newUserAD                                
                             }
                             catch {
                                 Write-Debug "Unable to create new user $($FullName) to AD.  Error message `n`n $Error"
+                                if(-not($oNewADUser)) {
+                                    Write-Debug "Something went wrong with adding our new $($FullName) user to AD. `n`n $error"
+                                    $failedUsers+= -join($Fullname,",",$SAM,",","We were unable to add our new user $($FullName) to AD. `n`n $error `n`n Moving to next user...")
+                                    continue
+                                }
                             }
-
-
-                            if(-not($oNewADUser)) {
-                                Write-Debug "Something went wrong with adding our new $($FullName) user to AD. `n`n $error"
-                                $failedUsers+= -join($Fullname,",",$SAM,",","We were unable to add our new user $($FullName) to AD. `n`n $error `n`n Moving to next user...")
-                                continue
-                            } else {
-                                Write-Debug "We created our new user $($FullName) in AD."
-                                $successUsers += -join($FullName,",",$SAM,"Successfully created new AD user.")
-                            }
+                            #Adding user went well..
+                            Write-Debug "We created our new user $($FullName) in AD."
+                            $successUsers += -join($FullName,",",$SAM,"Successfully created new AD user.")
                         }#=>else get-aduser
 
 
@@ -441,7 +439,7 @@ else {
             #Let's update our $newUserAD properties with this OU...
             $newUserAD['Path'] = $OU
 
-            Write-Debug "Adding user $($pFullName) to AD with the following paramaters; `n $($newUserAD)"
+            Write-Debug "Adding user $($pFullName) to AD with the following paramaters; `n $($newUserAD | Out-String)"
             $oNewADUser = New-ADUser @newUserAD
             if(-not($oNewADUser)) {
                 Write-Debug "Something went wrong with adding our new $($pFullName) user to AD."
