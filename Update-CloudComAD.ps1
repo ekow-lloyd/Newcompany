@@ -100,6 +100,8 @@ Run the script as a future dated scheduled task.
 PS> New-CloudComUser.ps1 -requestType New -isScheduled $true -sFristName "John" -sLastName "Doe" -sSAM "jdoe" -sUserName "john.doe" -sOU "OU=USERS,DC=AD,DC=local" -sStartDate "12/05/2019" -sEndDate "12/05/2020" -sCompany "ABC Co."
 
 #>
+#Requires -RunAsAdministrator
+
 Param(
     # Whether or not this is a scheduled task...
     [Parameter(Mandatory=$true,ParameterSetName="Scheduled")] #include $isScheduled in both (scheudled and init) parameter sets.
@@ -138,7 +140,7 @@ Param(
     $sCopyUser
 )
 
-$DebugPreference = "Continue"
+$DebugPreference = "Continue" #comment this line out when you don't want to enable the debugging output.
 $VerbosePreference = "Continue"
 $ErrorActionPreference = "Stop"
 
@@ -146,6 +148,8 @@ $LogFolder = "$env:userprofile\desktop\logs" #log file location.
 $TranscriptLog = -join($LogFolder,"\transcript.log")
 Start-Transcript -Path $TranscriptLog -Append -Force
 $csvPath = "C:\temp\csvfiles\" #changeme - Location where the website is delivering the CVS files.  Only a directory path is needed, do not enter a full path to a specific CSV file.
+$ScriptFullName = -join($PSScriptRoot,"\$($MyInvocation.MyCommand.Name)") #Dynamically create this script's path and name for use later in scheduled task creation.
+
 $a = 1;
 $b = 1;
 $failedUsers = @()
@@ -231,11 +235,11 @@ if (!($isScheduled)) {
                 $Company = Format-CsvValue -sValue $User.company #trim only since company names are rather specific on how they're spelled out.
                 if ($csvFile.Name -like "NU*") {
                     #This csvFile that we're working on seems to be a New User request as defined by the "NU" in the CSV file name so we add more details.
-                    $copyUser = -join($csvFile.copyuser, " ", $csvFile.copyuserLN)
+                    $copyUser = -join(($csvFile.copyuser).Trim()," ", ($csvFile.copyuserLN).Trim()) #We need the fullname of the user we're copying from.
                 }
                 #=> End of CSV values.
 
-                #Let's build other necessary variables that are required parameters for the New-ADuser cmdlet out of the information provided by the CSV file or other sources...
+                #Let's build other necessary variables that we want to use as parameters for the New-ADuser cmdlet out of the information provided by the CSV file or other sources...
                 $FullName = -join($($FirstName)," ",$($LastName)) #join $Firstname and $Lastname and a space to get FullName
                 $SAM = (-join(($FirstName).Substring(0,1),$LastName)).ToLower() #this assumes that your SAM naming convention is firstinitialLASTNAME and makes everything lowercase.
                 $Username = (-join($FirstName,".",$LastName)).ToLower() #this assumes that your usernames have a naming convention of firstname.lastname and makes everything lowercase.
@@ -243,7 +247,108 @@ if (!($isScheduled)) {
                 $UPN = -join($Username, $dnsroot)
                 $Password = (ConvertTo-SecureString -AsPlainText 'Cloudcom.1' -Force)
                 $oStartDate = [datetime]::ParseExact(($User.StartDate).Trim(), "dd/MM/yyyy", $null) #This converts the CSV "startdate" field from a string to a datetime object so we can use it for comparison.
-                Write-Debug "StartDate Object (Script): $($oStartDate)"
+                $oEndDate = [datetime]::ParseExact(($User.EndDate).Trim(), "dd/MM/yyyy", $null) #This conerts to CSV 'EndDate' field from a string to a datetime object which is required for the New-AdUser cmdlet 'AccountExpirationDate' parameter.
+
+                #debugging purposes...
+                Write-Debug '$FirstName: ' $FirstName
+                Write-Debug '$LastName: ' $LastName
+                Write-Debug '$Email: ' $Email
+                Write-Debug '$StartDate: ' $StartDate
+                Write-Debug '$EndDate: ' $EndDate
+                Write-Debug '$copyUser: ' $copyUser
+                Write-Debug '$FullName: ' $FullName
+                Write-Debug '$SAM: ' $SAM
+                Write-Debug '$Username: ' $Username
+                Write-Debug '$DNSRoot: ' $DNSroot
+                Write-Debug '$UPN: ' $UPN
+                Write-Debug '$oStartDate: ' $oStartDate
+                #=>debugging puproses
+
+                #Now, let's check the user's startdate as listed in the CSV file.  If startdate is within 48 hours of today's (Get-Date) date we'll create the user directly in AD.  Otherwise, we'll schedule a task to create the user at a later date.
+                #First, we need to check if this is a New User request, 'startdate' only applies to new users...
+                if ($csvFile.name -like "NU*") {
+                    if ( $(get-date) -ge ($oStartDate).AddHours(-48) ) {
+                        Write-Debug "$(Get-Date) (current script run time/date) is greater than or equal to 48 hours minus employee start date: $($oStartDate).AddHours(-48)) so we are creating the user immediately."
+
+                        #Checking to see if a user already exists in AD with the same email address...
+                        if (Get-AdUser -Filter "mail -eq $Email") {
+                            Write-Debug "A user with email address $($email) already exists in AD.  We cannot add this user."
+                            $failedUsers+= -join($Fullname,",",$SAM,",","A user with email address $($email) already exists in AD. Skipping this user.")
+                            Continue #go to next csv record.
+                        }#=if get-aduser
+                        else {
+                            Write-Debug "No existing user in AD with email address $($email) so we can create our user."
+
+                            $newUserAD = @{
+                                'SamAccountName'            = $SAM
+                                'UserPrincipalName'         = $UPN
+                                'Name'                      = $FullName
+                                'Company'                   = $Company
+                                'EmailAddress'              = $Email
+                                'GivenName'                 = $FirstName
+                                'Surname'                   = $LastName
+                                'AccountPassword'           = $Password
+                                'AccountExpirationDate'     = $oEndDate
+                                'ChangePasswordAtLogon'     = $true
+                                'Enabled'                   = $true
+                                'PasswordNeverExpires'      = $false
+                            }#=>$newUserAD
+
+                            Write-Debug "Attempting to get properties of our user to copy from..."
+                            $templateUser = Get-ADUser -filter {name -eq $copyUser} -Properties MemberOf
+                            if (-not($templateUser)) {
+                                Write-Debug "We were unable to find the template user $($copyUser) so we have to skip this new AD user and go to the next row in the CSV file."
+                                $failedUsers+= -join($Fullname,",",$SAM,",","We were unable to find the template user $($copyUser) so we have to skip creating new user $($FullName) and go to the next row in the CSV file.")
+                                continue #move to next CSV row.
+                            } else {
+                                #Let's get the OU that our template user belongs to and apply that to our new user...
+                                $OU = ($templateUser.DistinguishedName).Substring(($templateUser.DistinguishedName).IndexOf(",")+1)
+                                Write-Debug "Our OU for new user $($FullName) is $($OU) from copy of our template user $($copyUser) with OU of $($templateUser.DistinguishedName)"
+                                #Let's update our $newUserAD properties with this OU...
+                                $newUserAD['Path'] = $OU
+                            }#=>if/else $templateuser
+
+                            Write-Debug "Adding user $($FullName) to AD with the following paramaters; `n $($newUserAD)"
+                            $oNewADUser = New-ADUser @newUserAD
+                            if(-not($oNewADUser)) {
+                                Write-Debug "Something went wrong with adding our new $($FullName) user to AD."
+                                $failedUsers+= -join($Fullname,",",$SAM,",","We were unable to add our new user $($FullName) to AD. Moving to next user..")
+                                continue
+                            } else {
+                                Write-Debug "We created our new user $($FullName) in AD."
+                                $successUsers += -join($FullName,",",$SAM,"Successfully created new AD user.")
+                            }
+                        }#=>else get-aduser
+
+
+                    } else {
+                        Write-Debug "$(Get-Date) (current script run time/date) is NOT greater than or equal to 48 hours minus employee start date: $($oStartDate).AddHours(-48)) so we are scheduling a task to create the user later."
+                        
+                    }#=>if/get-date -ge startdate-48
+
+                }#=>if $csvFile.name NU*
+                elseif ($csvFile.name -like "CU*") {
+                    Write-Debug "This is a 'change user' request so we are making these changes immediately. We will NOT schedule these types of requests and will ignore CSV 'startdate' field."
+                    $changeUserAD = @{
+                        'SamAccountName'            = $SAM
+                        'UserPrincipalName'         = $UPN
+                        'Name'                      = $FullName
+                        'Company'                   = $Company
+                        'EmailAddress'              = $Email
+                        'GivenName'                 = $FirstName
+                        'Surname'                   = $LastName
+                        'AccountExpirationDate'     = $oEndDate
+                    }#=>$changeUserAD
+                    $oChangeADUser = Set-ADUser -filter {mail -eq $Email}
+                    if (not($oChangeADUser)) {
+                        Write-Debug "Unable to change user $($FullName) in AD."
+                        $failedUsers+= -join($Fullname,",",$SAM,",","Unable to change user $($Fullname) in AD.")
+                    } #=> if not $oChangeADUser
+                    else {
+                        Write-Debug "Unable to change user $($FullName) in AD."
+                        $successUsers += -join($FullName,",",$SAM,"Successfully changed AD user $($FullName)")
+                    } #=> else $oChangeADUser
+                }#=> elseif $csvFile.name -like CU*
             }#=>ForEach $user !$isScheduled
         }#=>foreach $csvFile
     }#=>if $csvFiles
@@ -253,4 +358,6 @@ if (!($isScheduled)) {
         exit
     }#=>else $csvFiles
 }#=>if !$isScheduled
+$failedUsers | ForEach-Object { "$($b).) $($_)"; $b++ } | out-file -FilePath  $LogFolder\FailedUsers.log -Force -Verbose #write failed users.
+$successUsers | ForEach-Object { "$($a).) $($_)"; $a++ } | out-file -FilePath  $LogFolder\successUsers.log -Force -Verbose #write success users.
 Stop-Transcript
