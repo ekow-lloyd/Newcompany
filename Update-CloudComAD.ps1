@@ -524,3 +524,5 @@ else {
 #$failedUsers | ForEach-Object { "$($b).) $($_)"; $b++ } | out-file -FilePath  $LogFolder\FailedUsers.log -Append -Force -Verbose #write failed users.
 #$successUsers | ForEach-Object { "$($a).) $($_)"; $a++ } | out-file -FilePath  $LogFolder\successUsers.log -Append -Force -Verbose #write success users.
 Stop-Transcript
+$transcriptContent = Get-Content -Path $TranscriptLog -RAW
+Write-CustomEventLog -message "Finished running script. Full transaction log details are below; `n`n` $($transcriptContent)" -entryType "Information"
