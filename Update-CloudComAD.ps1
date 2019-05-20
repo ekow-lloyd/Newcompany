@@ -150,8 +150,8 @@ Param(
 $PSCmdlet.ParameterSetName
 
 $DebugPreference = "Continue" #comment this line out when you don't want to enable the debugging output.
-$VerbosePreference = "Continue"
-$ErrorActionPreference = "Stop"
+#$VerbosePreference = "Continue"
+#$ErrorActionPreference = "Stop"
 
 $LogFolder = "$env:userprofile\desktop\logs" #log file location.
 $TranscriptLog = -join($LogFolder,"\transcript.log")
