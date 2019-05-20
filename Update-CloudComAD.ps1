@@ -381,12 +381,17 @@ if (!($isScheduled)) {
                     }
                     catch {
                         Write-Debug "Unable to change user $($FullName) in AD. Error is `n`n $Error"
-                        $failedUsers+= -join($Fullname,",",$SAM,",","Unable to change user $($Fullname) in AD. $Error")
+                        $failedUsers+= -join($Fullname,",",$SAM,",","Unable to change user $($Fullname) in AD.")
                     }
-                    #change user request was fine...
-                    Write-Debug "Successfully changed AD user $($FullName)"
-                    $successUsers += -join($FullName,",",$SAM,",","Successfully changed AD user $($FullName)")
-
+                    if(-not($oChangeADUser)) {
+                        Write-Debug "Unable to change user $($FullName) in AD."
+                        $failedUsers+= -join($Fullname,",",$SAM,",","Unable to change user $($Fullname) in AD.")
+                    } else {
+                        #change user request was fine...
+                        Write-Debug "Successfully changed AD user $($FullName)"
+                        $successUsers += -join($FullName,",",$SAM,",","Successfully changed AD user $($FullName)")
+                    }
+                    
                 }#=> elseif $csvFile.name -like CU*
             }#=>ForEach $user !$isScheduled
             Write-Debug "Renaming our current csv file $($csvFile.FullName) and addding a .done extension. Also making the file read-only."
