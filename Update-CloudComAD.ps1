@@ -347,7 +347,7 @@ if (!($isScheduled)) {
                             'pCopyUser'     = $copyUser
                         }#=>$newUserAD
                         #>
-                        $taskaction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -windowStyle Hidden -Command `"& $($ScriptFullName) -isScheduled $true -pSAM $($SAM) -pUPN $($UPN) -pFullName $($FullName) -pCompany $($Company) -pEmail $($Email) -pFirstName $($FristName) -pLastName $($LastName) -pEndDate $($EndDate) -pCopyUser $($copyuser)`""
+                        $taskaction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -windowStyle Hidden -Command `"& $($ScriptFullName) -isScheduled $true -pSAM $($SAM) -pUPN $($UPN) -pFullName $($FullName) -pCompany $($Company) -pEmail $($Email) -pFirstName $($FirstName) -pLastName $($LastName) -pEndDate $($EndDate) -pCopyUser $($copyuser)`""
                         $tasktrigger = New-ScheduledTaskTrigger -Once -At ($oStartDate).AddHours(-48)
                         try {
                             $ErrorActionPreference = 'stop'
