@@ -207,8 +207,8 @@ Import-Module ActiveDirectory
 if (!($isScheduled)) {
     Write-Debug "This is not a scheduled task so we can safely assume this is an initial read of a CSV file. Looking for all CSV files in $($csvPath) that are NOT readonly."
     #since we are anticipating *dynamically* named CSV files let's find all CSV files we have yet to process.
-    $csvFiles = Get-ChildItem -Path $csvPath -Attributes !readonly+!directory -Filter "*.csv"
-    Write-Debug '$csvFiles: ' $csvFiles
+    $csvFiles = Get-ChildItem -Path $csvPath -Filter "*.csv" -Attributes !readonly+!directory
+    Write-Debug "`$csvFiles: $($csvFiles)"
     if ($csvFiles) {
         Write-Debug "Found unprocessed CSV files..."
         foreach ($csvFile in $csvFiles) {
@@ -255,18 +255,18 @@ if (!($isScheduled)) {
                 $oEndDate = [datetime]::ParseExact(($User.EndDate).Trim(), "dd/MM/yyyy", $null) #This conerts to CSV 'EndDate' field from a string to a datetime object which is required for the New-AdUser cmdlet 'AccountExpirationDate' parameter.
 
                 #debugging purposes...
-                Write-Debug '$FirstName: ' $FirstName
-                Write-Debug '$LastName: ' $LastName
-                Write-Debug '$Email: ' $Email
-                Write-Debug '$StartDate: ' $StartDate
-                Write-Debug '$EndDate: ' $EndDate
-                Write-Debug '$copyUser: ' $copyUser
-                Write-Debug '$FullName: ' $FullName
-                Write-Debug '$SAM: ' $SAM
-                Write-Debug '$Username: ' $Username
-                Write-Debug '$DNSRoot: ' $DNSroot
-                Write-Debug '$UPN: ' $UPN
-                Write-Debug '$oStartDate: ' $oStartDate
+                Write-Debug "`$FirstName:  $($FirstName)"
+                Write-Debug "`$LastName: $($LastName)"
+                Write-Debug "`$Email: $($Email)"
+                Write-Debug "`$StartDate: $($StartDate)"
+                Write-Debug "`$EndDate: $($EndDate)"
+                Write-Debug "`$copyUser: $($copyUser)"
+                Write-Debug "`$FullName: $($FullName)"
+                Write-Debug "`$SAM: $($SAM)"
+                Write-Debug "`$Username: $($Username)"
+                Write-Debug "`$DNSRoot: $($DNSroot)"
+                Write-Debug "`$UPN: $($UPN)"
+                Write-Debug "`$oStartDate: $($oStartDate)"
                 #=>debugging puproses
 
                 #Now, let's check the user's startdate as listed in the CSV file.  If startdate is within 48 hours of today's (Get-Date) date we'll create the user directly in AD.  Otherwise, we'll schedule a task to create the user at a later date.
