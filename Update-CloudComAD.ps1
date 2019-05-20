@@ -444,8 +444,8 @@ else {
                 $failedUsers+= -join($pFullname,",",$pSAM,",","We were unable to add our new user $($pFullName) to AD. Moving to next user..")
                 continue
             } else {
-                Write-Debug "We created our new user $($FullName) in AD."
-                $successUsers += -join($FullName,",",$SAM,"Successfully created new AD user.")
+                Write-Debug "We created our new user $($pFullName) in AD."
+                $successUsers += -join($pFullName,",",$pSAM,"Successfully created new AD user.")
             }#=>if/else $oNewADUser
         }#=>if/else $templateuser
     }#=>else get-ADUser
