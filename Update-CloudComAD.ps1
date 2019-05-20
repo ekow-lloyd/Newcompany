@@ -158,11 +158,13 @@ $TranscriptLog = -join($LogFolder,"\transcript.log")
 Start-Transcript -Path $TranscriptLog -Append -Force
 $csvPath = "C:\temp\csvfiles\" #changeme - Location where the website is delivering the CVS files.  Only a directory path is needed, do not enter a full path to a specific CSV file.
 $ScriptFullName = -join($PSScriptRoot,"\$($MyInvocation.MyCommand.Name)") #Dynamically create this script's path and name for use later in scheduled task creation.
-
+<# Uncomment this block to get your $failedusers and $successUsers log writing functionality back.
 $a = 1;
 $b = 1;
 $failedUsers = @()
 $successUsers = @()
+#>
+
 
 function Format-CsvValue {
     [CmdletBinding()]
@@ -201,6 +203,44 @@ function Format-CsvValue {
         $rValue
     }
 } #=>Format-CsvValue
+
+
+
+Function Write-CustomEventLog {
+    [CmdletBinding()]
+    param(
+        # What message to write to the event viewer.
+        [Parameter(Mandatory=$true)]
+        [string]
+        $message,
+        # Type
+        [Parameter(Mandatory=$true)]
+        [ValidateSet('Information','Warning','Error')]
+        [string]
+        $entryType
+    )
+
+    Begin {
+        $eventSourceExists = [System.Diagnostics.EventLog]::SourceExists("Update-CloudComAD")
+        if(-not($eventSourceExists)) {
+            try {
+                New-EventLog -LogName Application -Source 'Update-CloudComAD'
+            }
+            catch {
+                Write-Debug 'Unable to create new application source.'
+            }
+        }#=>if not $eventSourceExists
+    }#=>Begin
+
+    Process {
+        switch ($entryType) {
+            "Information" { [int]$EventID = 1000 }
+            "Warning" { [int]$EventID = 2000 }
+            "Error" { [int]$EventID = 3000}
+        }
+        Write-EventLog -LogName Application -Source 'Update-CloudComAD' -EntryType $entryType -EventId $EventID -Message $message
+    }
+}
 
 Import-Module ActiveDirectory
 
@@ -278,7 +318,8 @@ if (!($isScheduled)) {
                         #Checking to see if a user already exists in AD with the same email address...
                         if (Get-AdUser -Filter {mail -eq $Email}) {
                             Write-Debug "A user with email address $($email) already exists in AD.  We cannot add this user."
-                            $failedUsers+= -join($Fullname,",",$SAM,",","A user with email address $($email) already exists in AD. Skipping this user.")
+                            #$failedUsers+= -join($Fullname,",",$SAM,",","A user with email address $($email) already exists in AD. Skipping this user.")
+                            Write-CustomEventLog -message "When attempting to create user $($FullName) [SAM: $($SAM)] we found another user that exists in AD using the same email address of $($email). We have to skip this user." -entryType "Warning"
                             Continue #go to next csv record.
                         }#=if get-aduser
                         else {
@@ -303,7 +344,8 @@ if (!($isScheduled)) {
                             $templateUser = Get-ADUser -filter {name -eq $copyUser} -Properties MemberOf
                             if (-not($templateUser)) {
                                 Write-Debug "We were unable to find the template user $($copyUser) so we have to skip this new AD user and go to the next row in the CSV file."
-                                $failedUsers+= -join($Fullname,",",$SAM,",","We were unable to find the template user $($copyUser) so we have to skip creating new user $($FullName) and go to the next row in the CSV file.")
+                                #$failedUsers+= -join($Fullname,",",$SAM,",","We were unable to find the template user $($copyUser) so we have to skip creating new user $($FullName) and go to the next row in the CSV file.")
+                                Write-CustomEventLog -message "We were unable to find the template user $($copyUser) when attempting to create new user $($FullName) with SAM $($SAM).  Skipping the creation of this user." -entryType "Warning"
                                 continue #move to next CSV row.
                             } else {
                                 #Let's get the OU that our template user belongs to and apply that to our new user...
@@ -321,13 +363,15 @@ if (!($isScheduled)) {
                                 Write-Debug "Unable to create new user $($FullName) to AD.  Error message `n`n $Error"
                                 if(-not($oNewADUser)) {
                                     Write-Debug "Something went wrong with adding our new $($FullName) user to AD. `n`n $error"
-                                    $failedUsers+= -join($Fullname,",",$SAM,",","We were unable to add our new user $($FullName) to AD. `n`n $error `n`n Moving to next user...")
+                                    #$failedUsers+= -join($Fullname,",",$SAM,",","We were unable to add our new user $($FullName) to AD. `n`n $error `n`n Moving to next user...")
+                                    Write-CustomEventLog -message "We were unable to add our new user $($FullName) to AD. Skipping this user.  Full error details below; `n`n $($Error)." -entryType "Warning"
                                     continue
                                 }
                             }
                             #Adding user went well..
                             Write-Debug "We created our new user $($FullName) in AD."
-                            $successUsers += -join($FullName,",",$SAM,",","Successfully created new AD user.")
+                            #$successUsers += -join($FullName,",",$SAM,",","Successfully created new AD user.")
+                            Write-CustomEventLog -message "Successfully created new AD User $($FullName).  AD Details included below; `n`n $($newuserAD | Out-String)" -entryType "Information"
                         }#=>else get-aduser
 
 
@@ -382,15 +426,18 @@ if (!($isScheduled)) {
                     }
                     catch {
                         Write-Debug "Unable to change user $($FullName) in AD. Error is `n`n $Error"
-                        $failedUsers+= -join($Fullname,",",$SAM,",","Unable to change user $($Fullname) in AD.")
+                        #$failedUsers+= -join($Fullname,",",$SAM,",","Unable to change user $($Fullname) in AD.")
+                        Write-CustomEventLog -message "Unable to modify AD User $($Fullname) with SAM $($SAM) in AD.  Full error details below; `n`n $($Error)" -entryType "Warning"
                     }
                     if(-not($oChangeADUser)) {
                         Write-Debug "Unable to change user $($FullName) in AD."
-                        $failedUsers+= -join($Fullname,",",$SAM,",","Unable to change user $($Fullname) in AD.")
+                        #$failedUsers+= -join($Fullname,",",$SAM,",","Unable to change user $($Fullname) in AD.")
+                        Write-CustomEventLog -message "Unable to modify AD User $($Fullname) with SAM $($SAM) in AD.  Full error details below; `n`n $($oChangeUser.Error)" -entryType "Warning"
                     } else {
                         #change user request was fine...
                         Write-Debug "Successfully changed AD user $($FullName)"
-                        $successUsers += -join($FullName,",",$SAM,",","Successfully changed AD user $($FullName)")
+                        #$successUsers += -join($FullName,",",$SAM,",","Successfully changed AD user $($FullName)")
+                        Write-CustomEventLog -message "Successfully updated AD User Name: $($FullName) - SAM: $($SAM) in AD. Details are below. `n`n $($changeUserAD | Out-String)" -entryType "Information"
                     }
                     
                 }#=> elseif $csvFile.name -like CU*
@@ -409,7 +456,8 @@ else {
     #Checking to see if a user already exists in AD with the same email address...
     if (Get-AdUser -Filter "mail -eq $pEmail") {
         Write-Debug "A user with email address $($pEmail) already exists in AD.  We cannot add this user."
-        $failedUsers+= -join($pFullname,",",$pSAM,",","A user with email address $($pEmail) already exists in AD. Skipping this user.")
+        #$failedUsers+= -join($pFullname,",",$pSAM,",","A user with email address $($pEmail) already exists in AD. Skipping this user.")
+        Write-CustomEventLog -message "A user with email address $($pEmail) already exists in AD.  Skipping the creation of user $($pFullName) with SAM $($pSAM)" -entryType "Warning"
     }#=if get-aduser
     else {
         Write-Debug "No existing user in AD with email address $($pEmail) so we can create our user."
@@ -418,7 +466,8 @@ else {
         if (-not($templateUser)) {
             Write-Debug "We were unable to find the template user $($pCopyUser) so we cannot create teh new user $($pFullName)"
             Write-Output "We were unable to find the template user $($pCopyUser) so we cannot create teh new user $($pFullName)"
-            $failedUsers+= -join($pFullname,",",$pSAM,",","We were unable to find the template user $($pCopyUser) so we cannot create new user $($pFullName)")
+            #$failedUsers+= -join($pFullname,",",$pSAM,",","We were unable to find the template user $($pCopyUser) so we cannot create new user $($pFullName)")
+            Write-CustomEventLog -message "We are unable to find the template user $($pCopyUser) in AD.  Unable to create new user $($pFullName) due to this error." -entryType "Warning"
         } else {
             $Password = (ConvertTo-SecureString -AsPlainText 'Cloudcom.1' -Force)
             $oEndDate = [datetime]::ParseExact(($pEndDate).Trim(), "dd/MM/yyyy", $null) #This conerts to CSV 'EndDate' field from a string to a datetime object which is required for the New-AdUser cmdlet 'AccountExpirationDate' parameter.
@@ -448,15 +497,17 @@ else {
             $oNewADUser = New-ADUser @newUserAD
             if(-not($oNewADUser)) {
                 Write-Debug "Something went wrong with adding our new $($pFullName) user to AD."
-                $failedUsers+= -join($pFullname,",",$pSAM,",","We were unable to add our new user $($pFullName) to AD. Moving to next user..")
+                #$failedUsers+= -join($pFullname,",",$pSAM,",","We were unable to add our new user $($pFullName) to AD. Moving to next user..")
+                Write-CustomEventLog -message "We were unable to add our new user $($pFullName) to AD using file $($csvFile.Fullname).  Moving to next user." -entryType "Warning"
                 continue
             } else {
                 Write-Debug "We created our new user $($pFullName) in AD."
-                $successUsers += -join($pFullName,",",$pSAM,",","Successfully created new AD user.")
+                #$successUsers += -join($pFullName,",",$pSAM,",","Successfully created new AD user.")
+                Write-CustomEventLog -message "Created new user $($pFullName) in AD.  Values are below; `n $($newUserAD | Out-String)" -entrypType "Information"
             }#=>if/else $oNewADUser
         }#=>if/else $templateuser
     }#=>else get-ADUser
 }#=>if isScheduled
-$failedUsers | ForEach-Object { "$($b).) $($_)"; $b++ } | out-file -FilePath  $LogFolder\FailedUsers.log -Append -Force -Verbose #write failed users.
-$successUsers | ForEach-Object { "$($a).) $($_)"; $a++ } | out-file -FilePath  $LogFolder\successUsers.log -Append -Force -Verbose #write success users.
+#$failedUsers | ForEach-Object { "$($b).) $($_)"; $b++ } | out-file -FilePath  $LogFolder\FailedUsers.log -Append -Force -Verbose #write failed users.
+#$successUsers | ForEach-Object { "$($a).) $($_)"; $a++ } | out-file -FilePath  $LogFolder\successUsers.log -Append -Force -Verbose #write success users.
 Stop-Transcript
