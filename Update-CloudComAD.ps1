@@ -340,7 +340,8 @@ if (!($isScheduled)) {
                             'pEndDate'      = $EndDate
                             'pCopyUser'     = $copyUser
                         }#=>$newUserAD
-                        $taskaction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -windowStyle Hidden -Command "& $($ScriptFullName) @taskNewUserParams"'
+                        
+                        $taskaction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -windowStyle Hidden -Command `"& $($ScriptFullName) @taskNewUserParams`""
                         $tasktrigger = New-ScheduledTaskTrigger -Once -At ($oStartDate).AddHours(-48)
                         try {
                             $ErrorActionPreference = 'stop'
