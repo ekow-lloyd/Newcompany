@@ -333,6 +333,7 @@ if (!($isScheduled)) {
 
                     } else {
                         Write-Debug "$(Get-Date) (current script run time/date) is NOT greater than or equal to 48 hours minus employee start date: $($oStartDate).AddHours(-48)) so we are scheduling a task to create the user later."
+                        <#
                         $taskNewUserParams= @{
                             'isScheduled'   = $true
                             'pSAM'          = $SAM
@@ -345,8 +346,8 @@ if (!($isScheduled)) {
                             'pEndDate'      = $EndDate
                             'pCopyUser'     = $copyUser
                         }#=>$newUserAD
-                        
-                        $taskaction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -windowStyle Hidden -Command `"& $($ScriptFullName) @taskNewUserParams`""
+                        #>
+                        $taskaction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -windowStyle Hidden -Command `"& $($ScriptFullName) -isScheduled $true -pSAM $($SAM) -pUPN $($UPN) -pFullName $($FullName) -pCompany $($Company) -pEmail $($Email) -pFirstName $($FristName) -pLastName $($LastName) -pEndDate $($EndDate) -pCopyUser $($copyuser)`""
                         $tasktrigger = New-ScheduledTaskTrigger -Once -At ($oStartDate).AddHours(-48)
                         try {
                             $ErrorActionPreference = 'stop'
