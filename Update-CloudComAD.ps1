@@ -240,7 +240,7 @@ if (!($isScheduled)) {
                 $Company = Format-CsvValue -sValue $User.company #trim only since company names are rather specific on how they're spelled out.
                 if ($csvFile.Name -like "NU*") {
                     #This csvFile that we're working on seems to be a New User request as defined by the "NU" in the CSV file name so we add more details.
-                    $copyUser = -join(($csvFile.copyuser).Trim()," ", ($csvFile.copyuserLN).Trim()) #We need the fullname of the user we're copying from.
+                    $copyUser = -join(($User.copyuser).Trim()," ", ($User.copyuserLN).Trim()) #We need the fullname of the user we're copying from.
                 }
                 #=> End of CSV values.
 
