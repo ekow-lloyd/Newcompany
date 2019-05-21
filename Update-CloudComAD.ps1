@@ -81,9 +81,8 @@ When run in "Init" set the path of the CSV file(s) are required.
 Outputs a transaction log to the user's Desktop ($env:username\desktop\).
 
 .EXAMPLE
-Common way to run the script...
 
-PS> New-CloudComUser.ps1
+.\New-CloudComUser.ps1
 
 #>
 #Requires -RunAsAdministrator
