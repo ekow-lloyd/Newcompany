@@ -4,12 +4,12 @@ Create a new or modify an existing CloudCom user in the CloudCom AD.
 
 .DESCRIPTION
 Create a new or modify an existing CloudCom user in the CloudCom AD.
-Two parameter sets ("Init" and "Scheduled") exist.  This is to make it easier to call the script when it's initially called (when reading from a CSV) or when it's called as part of a scheduled task.
+Two parameter sets ("Init" and "Scheduled") exist.  This is to make it easier to call the script when it's initially called (when you want to read CSV files) or when it's called as part of a scheduled task.
 Only paramaters that are members of a parameter set can be called in an single instance.
 
-This is used so the script can read the CSV file (init) and process the request based on the startdate value in the read CSV file.
+This is used so the script can read the CSV file(s) (init) and process the request based on the startdate value in the read CSV file.
 If the startdate of the user is within 48 hours of the scrpit run then it'll automatically add the user to AD at the time of script run.
-Otherwise, if the startdate of the user is beyond 48 hours of the script run, the script will create a scheduled tasks to add the user within 48 hours of the start date.
+Otherwise, if the startdate of the user is beyond 48 hours of the script run, the script will *automatically* create a scheduled tasks to add the user within 48 hours of the CSV startdate value.
 
 .PARAMETER isScheduled
 Type: SWITCH 
