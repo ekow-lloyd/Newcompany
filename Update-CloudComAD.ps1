@@ -400,11 +400,9 @@ if (!($isScheduled)) {
                         $findTask = Get-ScheduledTask -TaskName "Add AD User - $($FullName)"
                         if(-not($findTask)) {
                             Write-Debug "Our scheduled task | Add AD User - $($FullName) | was NOT created."
-                            Write-Output "Our scheduled task | Add AD User - $($FullName) | was NOT created."
                             Write-CustomEventLog -message "We were unable to create a scheduled task to create user $($FullName) - $($SAM) on $($StartDate)." -entryType "Warning"
                         } else {
                             Write-Debug "Our scheduled task | Add AD User - $($FullName) | was created."
-                            Write-Output "Our scheduled task | Add AD User - $($FullName) | was created."
                             Write-CustomEventLog -message "Created a scheduled task to create AD User $($FullName) $($SAM) on $(($oStartDate).AddHours(-48))" -entryType "Information"
                         } #=>if/else not $findTask
                     }#=>if/get-date -ge startdate-48
@@ -465,7 +463,6 @@ else {
         $templateUser = Get-ADUser -filter {name -eq $pCopyUser} -Properties MemberOf
         if (-not($templateUser)) {
             Write-Debug "We were unable to find the template user $($pCopyUser) so we cannot create teh new user $($pFullName)"
-            Write-Output "We were unable to find the template user $($pCopyUser) so we cannot create teh new user $($pFullName)"
             #$failedUsers+= -join($pFullname,",",$pSAM,",","We were unable to find the template user $($pCopyUser) so we cannot create new user $($pFullName)")
             Write-CustomEventLog -message "We are unable to find the template user $($pCopyUser) in AD.  Unable to create new user $($pFullName) due to this error." -entryType "Warning"
         } else {
