@@ -12,71 +12,62 @@ If the startdate of the user is within 48 hours of the scrpit run then it'll aut
 Otherwise, if the startdate of the user is beyond 48 hours of the script run, the script will create a scheduled tasks to add the user within 48 hours of the start date.
 
 .PARAMETER isScheduled
-Type: Boolean ($true or $false)
-Mandatory: Yes
+Type: SWITCH 
+Mandatory: Yes (Init)
 Set: Init, Scheduled
 Tells the script whether or not to run in a scheduled task mode ($true) or 'input from csv' mode ($false)
+SWITCH paramaters do not need values associated.  In our case, running Update-CloudComAD.ps1 -isScheduled is the same as saying Update-CloudComAD.ps1 -isScheduled $true 
 
-
-.PARAMETER RequestType
-Type: String
-Mandatory: Yes
-Set: Init, Scheduled
-Validation: "New", "Change"
-
-Tells the script if the request type is a new user (-RequestType New) or a change user (-RequestType Change).
-This parameter is mandatory and only accepts "New" or "Change" values.  Any other values passed to this paramater will cause the script to not run.
-
-.PARAMETER sFirstName
+.PARAMETER pFirstName
 Type: String
 Mandatory: Yes
 Set: Scheduled
 
 The firstname of the user.  Supplied as a parameter and value to the script when run from a scheduled task.
 
-.PARAMETER sLastName
+.PARAMETER pLastName
 Type: String
 Mandatory: Yes
 Set: Scheduled
 
 The last name of the user.  Supplied as a parameter and value to the scirpt when run from a scheduled task.
 
-.PARAMETER sSAM
+.PARAMETER pSAM
 Type: String
 Mandatory: Yes
 Set: Scheduled
 
 The SamAccountName of the user.  Supplied as a parameter and value to the scirpt when run from a scheduled task.
 
-.PARAMETER sUserName
+.PARAMETER pUserName
 Type: String
 Mandatory: Yes
 Set: Scheduled
 
 The username of the user.  Supplied as a parameter and value to the scirpt when run from a scheduled task.
 
-.PARAMETER sOU
+.PARAMETER pOU
 Type: String
 Mandatory: Yes
 Set: Scheduled
 
 The OU the user will belong to.  Supplied as a parameter and value to the scirpt when run from a scheduled task.
 
-.PARAMETER sStartDate
+.PARAMETER pStartDate
 Type: String
 Mandatory: Yes
 Set: Scheduled
 
 The Start Date of the user.  Supplied as a parameter and value to the scirpt when run from a scheduled task.
 
-.PARAMETER sEndDate
+.PARAMETER pEndDate
 Type: String
 Mandatory: Yes
 Set: Scheduled
 
 The End Date of the user.  Supplied as a parameter and value to the scirpt when run from a scheduled task.
 
-.PARAMETER sCompany
+.PARAMETER pCompany
 Type: String
 Mandatory: Yes
 Set: Scheduled
@@ -87,17 +78,12 @@ The Company the user belongs to. Supplied as a parameter and value to the scirpt
 When run in "Init" set the path of the CSV file(s) are required.
 
 .OUTPUTS
-Outputs two log files to the running user's Desktop ($env:username\desktop\)
+Outputs a transaction log to the user's Desktop ($env:username\desktop\).
 
 .EXAMPLE
-Run the script to pull the CSV file only.
+Common way to run the script...
 
-PS> New-CloudComUser.ps1 -requestType New -isScheduled $false
-
-.EXAMPLE
-Run the script as a future dated scheduled task.
-
-PS> New-CloudComUser.ps1 -requestType New -isScheduled $true -sFristName "John" -sLastName "Doe" -sSAM "jdoe" -sUserName "john.doe" -sOU "OU=USERS,DC=AD,DC=local" -sStartDate "12/05/2019" -sEndDate "12/05/2020" -sCompany "ABC Co."
+PS> New-CloudComUser.ps1
 
 #>
 #Requires -RunAsAdministrator
@@ -404,7 +390,7 @@ if (!($isScheduled)) {
                             'pCopyUser'     = $copyUser
                         }#=>$newUserAD
                         #>
-                        $taskaction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -windowStyle Hidden -Command `"& $($ScriptFullName) -isScheduled -pSAM $($SAM) -pUPN $($UPN) -pFullName $($FullName) -pCompany $($Company) -pEmail $($Email) -pFirstName $($FirstName) -pLastName $($LastName) -pEndDate $($EndDate) -pCopyUser $($copyuser)`""
+                        $taskaction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -windowStyle Hidden -Command `"& $($ScriptFullName) -isScheduled -pSAM `"$($SAM)`" -pUPN `"$($UPN)`" -pFullName `"$($FullName)`" -pCompany `"$($Company)`" -pEmail `"$($Email)`" -pFirstName `"$($FirstName)`" -pLastName `"$($LastName)`" -pEndDate `"$($EndDate)`" -pCopyUser `"$($copyuser)`"`""
                         $tasktrigger = New-ScheduledTaskTrigger -Once -At ($oStartDate).AddHours(-48)
                         try {
                             $taskregister = Register-ScheduledTask -Action $taskaction -Trigger $tasktrigger -TaskName "Add AD User - $($FullName)" -Description "Automatic creation of AD User $($FullName) 48 hours prior to the user's startdate." -ErrorAction 'Stop'
