@@ -141,7 +141,7 @@ $DebugPreference = "Continue" #comment this line out when you don't want to enab
 
 $LogFolder = "$env:userprofile\desktop\logs" #log file location.
 $TranscriptLog = -join($LogFolder,"\transcript.log")
-Start-Transcript -Path $TranscriptLog -Append -Force
+Start-Transcript -Path $TranscriptLog -Force
 $csvPath = "C:\temp\csvfiles\" #changeme - Location where the website is delivering the CVS files.  Only a directory path is needed, do not enter a full path to a specific CSV file.
 $ScriptFullName = -join($PSScriptRoot,"\$($MyInvocation.MyCommand.Name)") #Dynamically create this script's path and name for use later in scheduled task creation.
 <# Uncomment this block to get your $failedusers and $successUsers log writing functionality back.
@@ -453,7 +453,7 @@ if (!($isScheduled)) {
 else {
     Write-Debug "This is a scheduled task to create a new user.  Let's build our request and create the user."
     #Checking to see if a user already exists in AD with the same email address...
-    if (Get-AdUser -Filter "mail -eq $pEmail") {
+    if (Get-AdUser -Filter {mail -eq $pEmail}) {
         Write-Debug "A user with email address $($pEmail) already exists in AD.  We cannot add this user."
         #$failedUsers+= -join($pFullname,",",$pSAM,",","A user with email address $($pEmail) already exists in AD. Skipping this user.")
         Write-CustomEventLog -message "A user with email address $($pEmail) already exists in AD.  Skipping the creation of user $($pFullName) with SAM $($pSAM)" -entryType "Warning"
