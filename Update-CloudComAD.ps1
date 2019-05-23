@@ -510,3 +510,5 @@ else {
 Stop-Transcript
 $transcriptContent = Get-Content -Path $TranscriptLog -RAW
 Write-CustomEventLog -message "Finished running script. Full transaction log details are below; `n`n` $($transcriptContent)" -entryType "Information"
+
+Move-Item -Path C:\testNC\*.done -Destination C:\logNC   #this relocates all files with the '.Done' extension to a new log folder 
