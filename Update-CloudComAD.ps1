@@ -78,11 +78,15 @@ The Company the user belongs to. Supplied as a parameter and value to the scirpt
 When run in "Init" set the path of the CSV file(s) are required.
 
 .OUTPUTS
-Outputs a transaction log to the user's Desktop ($env:username\desktop\).
+Outputs a transaction log to the user's Desktop ($env:username\desktop\) and writes to the local Event Viewer "Application" log under the source "Update-CloudComAD".
 
 .EXAMPLE
 
 .\New-CloudComUser.ps1
+
+.NOTES
+
+5/30/2019 - Updated to use $templateUser mail properties as well for "AddressBookPolicy" and "Database". Review GitHub issue #8.
 
 #>
 #Requires -RunAsAdministrator
@@ -339,7 +343,16 @@ if (!($isScheduled)) {
                             }#=>$newUserAD
 
                             Write-Debug "Attempting to get properties of our user to copy from..."
-                            $templateUser = Get-ADUser -filter {name -eq $copyUser} -Properties MemberOf
+                            try {
+                                $templateUser = Get-ADUser -filter {name -eq $copyUser} -Properties MemberOf,EmailAddress -ErrorAction 'Stop' -WarningAction 'Stop'    
+                            }
+                            catch {
+                                Write-Debug "We were unable to find the template user $($copyUser) so we have to skip this new AD user and go to the next row in the CSV file."
+                                #$failedUsers+= -join($Fullname,",",$SAM,",","We were unable to find the template user $($copyUser) so we have to skip creating new user $($FullName) and go to the next row in the CSV file.")
+                                Write-CustomEventLog -message "We were unable to find the template user $($copyUser) when attempting to create new user $($FullName) with SAM $($SAM).  Skipping the creation of this user." -entryType "Warning"
+                                continue #move to next CSV row.
+                            }
+                            
                             if (-not($templateUser)) {
                                 Write-Debug "We were unable to find the template user $($copyUser) so we have to skip this new AD user and go to the next row in the CSV file."
                                 #$failedUsers+= -join($Fullname,",",$SAM,",","We were unable to find the template user $($copyUser) so we have to skip creating new user $($FullName) and go to the next row in the CSV file.")
@@ -355,7 +368,7 @@ if (!($isScheduled)) {
 
                             Write-Debug "Adding user $($FullName) to AD with the following paramaters; `n $($newUserAD | Out-String)"
                             try {
-                                $oNewADUser = New-ADUser @newUserAD                                
+                                $oNewADUser = New-ADUser @newUserAD -ErrorAction 'Stop' -WarningAction 'Stop'
                             }
                             catch {
                                 Write-Debug "Unable to create new user $($FullName) to AD.  Error message `n`n $Error"
@@ -370,6 +383,34 @@ if (!($isScheduled)) {
                             Write-Debug "We created our new user $($FullName) in AD."
                             #$successUsers += -join($FullName,",",$SAM,",","Successfully created new AD user.")
                             Write-CustomEventLog -message "Successfully created new AD User $($FullName).  AD Details included below; `n`n $($newuserAD | Out-String)" -entryType "Information"
+
+                            #GitHub Issue #8 - adding user to Exchange and copying $templateUser mailbox properties for AddressBookPolicy and Database.
+                            Write-Debug "Provisioning user $($FullName) in Exchange and assigning AddressBookPolicy and Database based on properties of our template user: $($copyUser)"
+                            #Add-PSSnapin Microsoft.Exchange.Management.PowerShell.E2010; #Uncomment for Exchange 2010
+                            Add-PSSnapin Microsoft.Exchange.Management.PowerShell.SnapIn; #Adding PowerShell snap-ins for Exchange 2013 and 2016.
+                            try {
+                                $copyMailProps = Get-MailBox -Identity $($templateUser.EmailAddress) -ErrorAction 'Stop' -WarningAction 'Stop' | Select-Object AddressBookPolicy,Database
+                            }
+                            catch {
+                                Write-Debug "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email. Continuing to next user."
+                                Write-CustomEventLog -message "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email." -entryType "Warning"
+                                Continue
+                            }#=>try/catch CopyMailProps
+                            if (-not($copyMailProps)) {
+                                Write-Debug "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email. Continuing to next user."
+                                Write-CustomEventLog -message "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email." -entryType "Warning"
+                                Continue
+                            } else {
+                                try {
+                                    Enable-Mailbox -Identity $Email -DisplayName $FullName -Database $($copyMailProps.Database) -ErrorAction 'Stop' -WarningAction 'Stop'
+                                    Set-Mailbox -Identity $Email -EmailAddressPolicy $false -PrimarySmtpAddress $Email -AddressBookPolicy $copyMailProps.AddressBookPolicy -ErrorAction 'Stop' -WarningAction 'Stop'
+                                }
+                                catch {
+                                    Write-Debug "Unable to Enable-Mailbox or Set-Mailbox for user $($FullName).  Error message is: `n $($Error)"
+                                    Write-CustomEventLog -message "Unable to Enable-Mailbox or Set-Mailbox for user $($FullName).  Error message is: `n $($Error)" -entryType 'Error'
+                                    Continue
+                                }
+                            }
                         }#=>else get-aduser
 
 
@@ -460,7 +501,7 @@ else {
     else {
         Write-Debug "No existing user in AD with email address $($pEmail) so we can create our user."
         Write-Debug "Attempting to get properties of our user to copy from..."
-        $templateUser = Get-ADUser -filter {name -eq $pCopyUser} -Properties MemberOf
+        $templateUser = Get-ADUser -filter {name -eq $pCopyUser} -Properties MemberOf,EmailAddress
         if (-not($templateUser)) {
             Write-Debug "We were unable to find the template user $($pCopyUser) so we cannot create teh new user $($pFullName)"
             #$failedUsers+= -join($pFullname,",",$pSAM,",","We were unable to find the template user $($pCopyUser) so we cannot create new user $($pFullName)")
@@ -501,6 +542,33 @@ else {
                 Write-Debug "We created our new user $($pFullName) in AD."
                 #$successUsers += -join($pFullName,",",$pSAM,",","Successfully created new AD user.")
                 Write-CustomEventLog -message "Created new user $($pFullName) in AD.  Values are below; `n $($newUserAD | Out-String)" -entrypType "Information"
+                #GitHub Issue #8 - adding user to Exchange and copying $templateUser mailbox properties for AddressBookPolicy and Database.
+                Write-Debug "Provisioning user $($FullName) in Exchange and assigning AddressBookPolicy and Database based on properties of our template user: $($copyUser)"
+                #Add-PSSnapin Microsoft.Exchange.Management.PowerShell.E2010; #Uncomment for Exchange 2010
+                Add-PSSnapin Microsoft.Exchange.Management.PowerShell.SnapIn; #Adding PowerShell snap-ins for Exchange 2013 and 2016.
+                try {
+                    $copyMailProps = Get-MailBox -Identity $($templateUser.EmailAddress) -ErrorAction 'Stop' -WarningAction 'Stop' | Select-Object AddressBookPolicy,Database
+                }
+                catch {
+                    Write-Debug "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email. Continuing to next user."
+                    Write-CustomEventLog -message "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email." -entryType "Warning"
+                    Continue
+                }#=>try/catch CopyMailProps
+                if (-not($copyMailProps)) {
+                    Write-Debug "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email. Continuing to next user."
+                    Write-CustomEventLog -message "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email." -entryType "Warning"
+                    Continue
+                } else {
+                    try {
+                        Enable-Mailbox -Identity $Email -DisplayName $FullName -Database $($copyMailProps.Database) -ErrorAction 'Stop' -WarningAction 'Stop'
+                        Set-Mailbox -Identity $Email -EmailAddressPolicy $false -PrimarySmtpAddress $Email -AddressBookPolicy $copyMailProps.AddressBookPolicy -ErrorAction 'Stop' -WarningAction 'Stop'
+                    }
+                    catch {
+                        Write-Debug "Unable to Enable-Mailbox or Set-Mailbox for user $($FullName).  Error message is: `n $($Error)"
+                        Write-CustomEventLog -message "Unable to Enable-Mailbox or Set-Mailbox for user $($FullName).  Error message is: `n $($Error)" -entryType 'Error'
+                        Continue
+                    }
+                }
             }#=>if/else $oNewADUser
         }#=>if/else $templateuser
     }#=>else get-ADUser
