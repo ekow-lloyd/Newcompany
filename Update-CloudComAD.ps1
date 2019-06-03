@@ -544,8 +544,20 @@ else {
                 Write-CustomEventLog -message "Created new user $($pFullName) in AD.  Values are below; `n $($newUserAD | Out-String)" -entrypType "Information"
                 #GitHub Issue #8 - adding user to Exchange and copying $templateUser mailbox properties for AddressBookPolicy and Database.
                 Write-Debug "Provisioning user $($FullName) in Exchange and assigning AddressBookPolicy and Database based on properties of our template user: $($copyUser)"
-                #Add-PSSnapin Microsoft.Exchange.Management.PowerShell.E2010; #Uncomment for Exchange 2010
-                Add-PSSnapin Microsoft.Exchange.Management.PowerShell.SnapIn; #Adding PowerShell snap-ins for Exchange 2013 and 2016.
+                #Connecting to remote Exchange server.
+                Write-Debug "Attemping to connect to Exchange powershell connection."
+                try {
+                    $exchSession = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $exchUri -Credential $exchCred -ErrorAction 'Stop' -WarningAction 'Stop'
+                    Import-PSSession $exchSession -ErrorAction 'Stop' -WarningAction 'Stop'
+                }
+                catch {
+                    Write-Dbug "Unable to connect to Exchange PowerShell due to the following error $($Error).  This is likely a fatal error for the entire email portion of the script."
+                    Write-CustomEventLog -message "Unable to connect to Exchange Powershell to create mailbox for user $($FullName) due to the following error: `n $($Error) `n This is likely a fatal error for the entire email portion of the script.  This error should be remedied or no email boxes will be created."
+                    Continue                    
+                }
+                
+                
+                #Add-PSSnapin Microsoft.Exchange.Management.PowerShell.SnapIn; #Adding PowerShell snap-ins for Exchange 2013 and 2016.
                 try {
                     $copyMailProps = Get-MailBox -Identity $($templateUser.EmailAddress) -ErrorAction 'Stop' -WarningAction 'Stop' | Select-Object AddressBookPolicy,Database
                 }
