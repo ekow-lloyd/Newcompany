@@ -551,7 +551,7 @@ else {
                     Import-PSSession $exchSession -ErrorAction 'Stop' -WarningAction 'Stop'
                 }
                 catch {
-                    Write-Dbug "Unable to connect to Exchange PowerShell due to the following error $($Error).  This is likely a fatal error for the entire email portion of the script."
+                    Write-Debug "Unable to connect to Exchange PowerShell due to the following error $($Error).  This is likely a fatal error for the entire email portion of the script."
                     Write-CustomEventLog -message "Unable to connect to Exchange Powershell to create mailbox for user $($FullName) due to the following error: `n $($Error) `n This is likely a fatal error for the entire email portion of the script.  This error should be remedied or no email boxes will be created."
                     Continue                    
                 }
