@@ -403,14 +403,21 @@ if (!($isScheduled)) {
                             } else {
                                 try {
                                     Enable-Mailbox -Identity $Email -DisplayName $FullName -Database $($copyMailProps.Database) -ErrorAction 'Stop' -WarningAction 'Stop'
+                                }
+                                catch {
+                                    Write-Debug "Unable to Enable-Mailbox for user $($FullName) with email $($Email).  Error message is: `n $($Error)"
+                                    Write-CustomEventLog -message "Unable to Enable-Mailbox for user $($FullName) with email $($Email).  Error message is: `n $($Error)" -entryType 'Error'
+                                    Continue
+                                } #=>try/catch Enable-Mailbox
+                                try {
                                     Set-Mailbox -Identity $Email -EmailAddressPolicy $false -PrimarySmtpAddress $Email -AddressBookPolicy $copyMailProps.AddressBookPolicy -ErrorAction 'Stop' -WarningAction 'Stop'
                                 }
                                 catch {
-                                    Write-Debug "Unable to Enable-Mailbox or Set-Mailbox for user $($FullName).  Error message is: `n $($Error)"
-                                    Write-CustomEventLog -message "Unable to Enable-Mailbox or Set-Mailbox for user $($FullName).  Error message is: `n $($Error)" -entryType 'Error'
+                                    Write-Debug "Unable to Set-Mailbox for user $($FullName) with email $($Email).  Error message is: `n $($Error)"
+                                    Write-CustomEventLog -message "Unable to Set-Mailbox for user $($FullName) with email $($Email).  Error message is: `n $($Error)" -entryType 'Error'
                                     Continue
-                                }
-                            }
+                                } #=>try/catch Set-Mailbox
+                            }#=>if not $copyMailProps
                         }#=>else get-aduser
 
 
@@ -573,14 +580,21 @@ else {
                 } else {
                     try {
                         Enable-Mailbox -Identity $Email -DisplayName $FullName -Database $($copyMailProps.Database) -ErrorAction 'Stop' -WarningAction 'Stop'
+                    }
+                    catch {
+                        Write-Debug "Unable to Enable-Mailbox for user $($FullName) with email $($Email).  Error message is: `n $($Error)"
+                        Write-CustomEventLog -message "Unable to Enable-Mailbox for user $($FullName) with email $($Email).  Error message is: `n $($Error)" -entryType 'Error'
+                        Continue
+                    } #=>try/catch Enable-Mailbox
+                    try {
                         Set-Mailbox -Identity $Email -EmailAddressPolicy $false -PrimarySmtpAddress $Email -AddressBookPolicy $copyMailProps.AddressBookPolicy -ErrorAction 'Stop' -WarningAction 'Stop'
                     }
                     catch {
-                        Write-Debug "Unable to Enable-Mailbox or Set-Mailbox for user $($FullName).  Error message is: `n $($Error)"
-                        Write-CustomEventLog -message "Unable to Enable-Mailbox or Set-Mailbox for user $($FullName).  Error message is: `n $($Error)" -entryType 'Error'
+                        Write-Debug "Unable to Set-Mailbox for user $($FullName) with email $($Email).  Error message is: `n $($Error)"
+                        Write-CustomEventLog -message "Unable to Set-Mailbox for user $($FullName) with email $($Email).  Error message is: `n $($Error)" -entryType 'Error'
                         Continue
-                    }
-                }
+                    } #=>try/catch Set-Mailbox
+                }#=> if not $copyMailProps
             }#=>if/else $oNewADUser
         }#=>if/else $templateuser
     }#=>else get-ADUser
