@@ -389,6 +389,7 @@ if (!($isScheduled)) {
                             #Add-PSSnapin Microsoft.Exchange.Management.PowerShell.E2010; #Uncomment for Exchange 2010
                             Add-PSSnapin Microsoft.Exchange.Management.PowerShell.SnapIn; #Adding PowerShell snap-ins for Exchange 2013 and 2016.
                             try {
+                                Write-Debug "Running Get-Mailbox using identity parameter of $($templateUser.EmailAddress)"
                                 $copyMailProps = Get-MailBox -Identity $($templateUser.EmailAddress) -ErrorAction 'Stop' -WarningAction 'Stop' | Select-Object AddressBookPolicy,Database
                             }
                             catch {
@@ -402,6 +403,7 @@ if (!($isScheduled)) {
                                 Continue
                             } else {
                                 try {
+                                    Write-Debug "Running Enable-Mailbox using the paramaters of -idenity $($Email) -DisplayName $($FullName) -Database $($copyMailProps.Database)"
                                     Enable-Mailbox -Identity $Email -DisplayName $FullName -Database $($copyMailProps.Database) -ErrorAction 'Stop' -WarningAction 'Stop'
                                 }
                                 catch {
@@ -410,7 +412,8 @@ if (!($isScheduled)) {
                                     Continue
                                 } #=>try/catch Enable-Mailbox
                                 try {
-                                    Set-Mailbox -Identity $Email -EmailAddressPolicy $false -PrimarySmtpAddress $Email -AddressBookPolicy $copyMailProps.AddressBookPolicy -ErrorAction 'Stop' -WarningAction 'Stop'
+                                    Write-Debug "Running Set-Mailbox usign paramaters -identity = $($Email) -PrimarySmtpAddress $($Email) -AddressbookPolicy $($copyMailProps.AddressBookPolicy)"
+                                    Set-Mailbox -Identity $Email -EmailAddressPolicy $false -PrimarySmtpAddress $Email -AddressBookPolicy $($copyMailProps.AddressBookPolicy) -ErrorAction 'Stop' -WarningAction 'Stop'
                                 }
                                 catch {
                                     Write-Debug "Unable to Set-Mailbox for user $($FullName) with email $($Email).  Error message is: `n $($Error)"
@@ -528,7 +531,7 @@ else {
                 'AccountExpirationDate'     = $oEndDate
                 'ChangePasswordAtLogon'     = $true
                 'Enabled'                   = $true
-                'PasswordNeverExpires'      = $false
+                'PasswordNeverExpires'      = $false  
             }#=>$newUserAD
 
             #Let's get the OU that our template user belongs to and apply that to our new user...
@@ -579,6 +582,7 @@ else {
                     Continue
                 } else {
                     try {
+                        Write-Debug "Running Enable-Mailbox using the paramaters of -idenity $($Email) -DisplayName $($FullName) -Database $($copyMailProps.Database)"
                         Enable-Mailbox -Identity $Email -DisplayName $FullName -Database $($copyMailProps.Database) -ErrorAction 'Stop' -WarningAction 'Stop'
                     }
                     catch {
@@ -587,7 +591,8 @@ else {
                         Continue
                     } #=>try/catch Enable-Mailbox
                     try {
-                        Set-Mailbox -Identity $Email -EmailAddressPolicy $false -PrimarySmtpAddress $Email -AddressBookPolicy $copyMailProps.AddressBookPolicy -ErrorAction 'Stop' -WarningAction 'Stop'
+                        Write-Debug "Running Set-Mailbox usign paramaters -identity = $($Email) -PrimarySmtpAddress $($Email) -AddressbookPolicy $($copyMailProps.AddressBookPolicy)"
+                        Set-Mailbox -Identity $Email -EmailAddressPolicy $false -PrimarySmtpAddress $Email -AddressBookPolicy $($copyMailProps.AddressBookPolicy) -ErrorAction 'Stop' -WarningAction 'Stop'
                     }
                     catch {
                         Write-Debug "Unable to Set-Mailbox for user $($FullName) with email $($Email).  Error message is: `n $($Error)"
