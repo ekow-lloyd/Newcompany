@@ -402,6 +402,7 @@ if (!($isScheduled)) {
                                 Write-CustomEventLog -message "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email." -entryType "Warning"
                                 Continue
                             } else {
+                                Write-Debug "`$copyMailProps has returned; $($copyMailProps | Out-String)"
                                 try {
                                     Write-Debug "Running Enable-Mailbox using the paramaters of -idenity $($Email) -DisplayName $($FullName) -Database $($copyMailProps.Database)"
                                     Enable-Mailbox -Identity $Email -DisplayName $FullName -Database $($copyMailProps.Database) -ErrorAction 'Stop' -WarningAction 'Stop'
@@ -581,6 +582,7 @@ else {
                     Write-CustomEventLog -message "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email." -entryType "Warning"
                     Continue
                 } else {
+                    Write-Debug "`$copyMailProps has returned; $($copyMailProps | Out-String)"
                     try {
                         Write-Debug "Running Enable-Mailbox using the paramaters of -idenity $($Email) -DisplayName $($FullName) -Database $($copyMailProps.Database)"
                         Enable-Mailbox -Identity $Email -DisplayName $FullName -Database $($copyMailProps.Database) -ErrorAction 'Stop' -WarningAction 'Stop'
