@@ -320,7 +320,6 @@ if (!($isScheduled)) {
                         #Checking to see if a user already exists in AD with the same email address...
                         if (Get-AdUser -Filter {mail -eq $Email}) {
                             Write-Debug "A user with email address $($email) already exists in AD.  We cannot add this user."
-                            #$failedUsers+= -join($Fullname,",",$SAM,",","A user with email address $($email) already exists in AD. Skipping this user.")
                             Write-CustomEventLog -message "When attempting to create user $($FullName) [SAM: $($SAM)] we found another user that exists in AD using the same email address of $($email). We have to skip this user." -entryType "Warning"
                             Continue #go to next csv record.
                         }#=if get-aduser
@@ -328,19 +327,22 @@ if (!($isScheduled)) {
                             Write-Debug "No existing user in AD with email address $($email) so we can create our user."
 
                             $newUserAD = @{
-                                'SamAccountName'            = $SAM
-                                'UserPrincipalName'         = $UPN
-                                'Name'                      = $FullName
                                 'Company'                   = $Company
-                                'EmailAddress'              = $Email
-                                'GivenName'                 = $FirstName
-                                'Surname'                   = $LastName
-                                'AccountPassword'           = $Password
                                 'AccountExpirationDate'     = $oEndDate
                                 'ChangePasswordAtLogon'     = $true
                                 'Enabled'                   = $true
                                 'PasswordNeverExpires'      = $false
                             }#=>$newUserAD
+
+                            $newUserExch = @{
+                                'SamAccountName'            = $SAM
+                                'UserPrincipalName'         = $UPN
+                                'Name'                      = $FullName
+                                'PrimarySmtpAddress'        = $Email
+                                'FirstName'                 = $FirstName
+                                'LastName'                  = $LastName
+                                'Password'                  = $Password
+                            }
 
                             Write-Debug "Attempting to get properties of our user to copy from..."
                             try {
@@ -351,7 +353,7 @@ if (!($isScheduled)) {
                                 #$failedUsers+= -join($Fullname,",",$SAM,",","We were unable to find the template user $($copyUser) so we have to skip creating new user $($FullName) and go to the next row in the CSV file.")
                                 Write-CustomEventLog -message "We were unable to find the template user $($copyUser) when attempting to create new user $($FullName) with SAM $($SAM).  Skipping the creation of this user." -entryType "Warning"
                                 continue #move to next CSV row.
-                            }
+                            }#=>try/catch $templateUser
                             
                             if (-not($templateUser)) {
                                 Write-Debug "We were unable to find the template user $($copyUser) so we have to skip this new AD user and go to the next row in the CSV file."
@@ -363,38 +365,18 @@ if (!($isScheduled)) {
                                 $OU = ($templateUser.DistinguishedName).Substring(($templateUser.DistinguishedName).IndexOf(",")+1)
                                 Write-Debug "Our OU for new user $($FullName) is $($OU) from copy of our template user $($copyUser) with OU of $($templateUser.DistinguishedName)"
                                 #Let's update our $newUserAD properties with this OU...
-                                $newUserAD['Path'] = $OU
-                            }#=>if/else $templateuser
+                                $newUserExch['OrganizationalUnit'] = $OU
+                            }#=>if/else not $templateuser
 
-                            Write-Debug "Adding user $($FullName) to AD with the following paramaters; `n $($newUserAD | Out-String)"
-                            try {
-                                $oNewADUser = New-ADUser @newUserAD -ErrorAction 'Stop' -WarningAction 'Stop'
-                            }
-                            catch {
-                                Write-Debug "Unable to create new user $($FullName) to AD.  Error message `n`n $Error"
-                                if(-not($oNewADUser)) {
-                                    Write-Debug "Something went wrong with adding our new $($FullName) user to AD. `n`n $error"
-                                    #$failedUsers+= -join($Fullname,",",$SAM,",","We were unable to add our new user $($FullName) to AD. `n`n $error `n`n Moving to next user...")
-                                    Write-CustomEventLog -message "We were unable to add our new user $($FullName) to AD. Skipping this user.  Full error details below; `n`n $($Error)." -entryType "Warning"
-                                    continue
-                                }
-                            }
-                            #Adding user went well..
-                            Write-Debug "We created our new user $($FullName) in AD."
-                            #$successUsers += -join($FullName,",",$SAM,",","Successfully created new AD user.")
-                            Write-CustomEventLog -message "Successfully created new AD User $($FullName).  AD Details included below; `n`n $($newuserAD | Out-String)" -entryType "Information"
-
-                            #GitHub Issue #8 - adding user to Exchange and copying $templateUser mailbox properties for AddressBookPolicy and Database.
-                            Write-Debug "Provisioning user $($FullName) in Exchange and assigning AddressBookPolicy and Database based on properties of our template user: $($copyUser)"
-                            #Add-PSSnapin Microsoft.Exchange.Management.PowerShell.E2010; #Uncomment for Exchange 2010
-                            Add-PSSnapin Microsoft.Exchange.Management.PowerShell.SnapIn; #Adding PowerShell snap-ins for Exchange 2013 and 2016.
+                            #Write-Debug "Adding user $($FullName) to AD with the following paramaters; `n $($newUserAD | Out-String)"
+                            Write-Debug "Creating user in Exchange and AD using New-Mailbox cmdlet.  Passing parameters: `n $($newUserExch | Out-String)"
                             try {
                                 Write-Debug "Running Get-Mailbox using identity parameter of $($templateUser.EmailAddress)"
                                 $copyMailProps = Get-MailBox -Identity $($templateUser.EmailAddress) -ErrorAction 'Stop' -WarningAction 'Stop' | Select-Object AddressBookPolicy,Database
                             }
                             catch {
-                                Write-Debug "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email. Continuing to next user."
-                                Write-CustomEventLog -message "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email." -entryType "Warning"
+                                Write-Debug "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName) in AD or Exchange. Continuing to next user."
+                                Write-CustomEventLog -message "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName) in AD or Exchange." -entryType "Warning"
                                 Continue
                             }#=>try/catch CopyMailProps
                             if (-not($copyMailProps)) {
@@ -402,29 +384,43 @@ if (!($isScheduled)) {
                                 Write-CustomEventLog -message "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email." -entryType "Warning"
                                 Continue
                             } else {
+                                #We got our $copyMailProps properties for Database and AddressBookPolicy so we'll just add that to the $newUserExch hashtable.
                                 Write-Debug "`$copyMailProps has returned; $($copyMailProps | Out-String)"
-                                try {
-                                    Write-Debug "Running Enable-Mailbox using the paramaters of -idenity $($Email) -DisplayName $($FullName) -Database $($copyMailProps.Database)"
-                                    Enable-Mailbox -Identity $Email -DisplayName $FullName -Database $($copyMailProps.Database) -ErrorAction 'Stop' -WarningAction 'Stop'
-                                }
-                                catch {
-                                    Write-Debug "Unable to Enable-Mailbox for user $($FullName) with email $($Email).  Error message is: `n $($Error)"
-                                    Write-CustomEventLog -message "Unable to Enable-Mailbox for user $($FullName) with email $($Email).  Error message is: `n $($Error)" -entryType 'Error'
-                                    Continue
-                                } #=>try/catch Enable-Mailbox
-                                try {
-                                    Write-Debug "Running Set-Mailbox usign paramaters -identity = $($Email) -PrimarySmtpAddress $($Email) -AddressbookPolicy $($copyMailProps.AddressBookPolicy)"
-                                    Set-Mailbox -Identity $Email -EmailAddressPolicy $false -PrimarySmtpAddress $Email -AddressBookPolicy $($copyMailProps.AddressBookPolicy) -ErrorAction 'Stop' -WarningAction 'Stop'
-                                }
-                                catch {
-                                    Write-Debug "Unable to Set-Mailbox for user $($FullName) with email $($Email).  Error message is: `n $($Error)"
-                                    Write-CustomEventLog -message "Unable to Set-Mailbox for user $($FullName) with email $($Email).  Error message is: `n $($Error)" -entryType 'Error'
-                                    Continue
-                                } #=>try/catch Set-Mailbox
+                                $newUserExch['AddressBookPolicy'] = $copyMailProps.AddressBookPolicy
+                                $newUserExch['Database'] = $copyMailProps.Database
                             }#=>if not $copyMailProps
+                            try {
+                                $oNewExchUser = New-Mailbox @newUserExch -ErrorAction 'Stop' -WarningAction 'Stop'
+                            }
+                            catch {
+                                Write-Debug "Unable to create new user $($FullName) using New-Mailbox.  Error message `n`n $Error"
+                            }
+                            if(-not($oNewExchUser)) {
+                                Write-Debug "Something went wrong with adding our new $($FullName) user to AD and Exchange. `n`n $error"
+                                Write-CustomEventLog -message "We were unable to add our new user $($FullName) to AD and Exchange. Skipping this user.  Full error details below; `n`n $($Error)." -entryType "Warning"
+                                continue
+                            }
+                            #Adding user went well now let's update the AD properties for this user that can't be done using the New-Mailbox cmdlet.
+                            Write-Debug "We created our new user $($FullName) in AD and Exchange. Modifying AD user properties."
+                            try {
+                                $setUserADProps = Set-ADUser @newUserAD -ErrorAction 'Stop' -WarningAction 'Stop'
+                            }
+                            catch {
+                                Write-Debug "Unable to modify AD user properties for $($FullName).  Continuing to next user."
+                                Write-CustomEventLog -message "We were unable to modify AD properties for user $($FullName).  Full error is `n`n $($Error).`n`n User properties we want to modify are $($newUserAD | Out-String)"
+                                continue
+                            }#=> try/catch $setUserADProps
+                            if(-not($setUserADProps)) {
+                                Write-Debug "Unable to modify AD user properties for $($FullName).  Continuing to next user."
+                                Write-CustomEventLog -message "We were unable to modify AD properties for user $($FullName).  Full error is `n`n $($Error).`n`n User properties we want to modify are $($newUserAD | Out-String)"
+                                continue
+                            } else {
+                                Write-Debug "Successfully created new Exchange mailbox and modified AD properties for user"
+                                Write-CustomEventLog -message "Successfully created new AD User and Exchange Mailbox for $($FullName).  AD and Exchange Details included below; `n`n $($newUserExch | Out-String) `n`n $($newUserAD | Out-String)" -entryType "Information"
+                            }
                         }#=>else get-aduser
 
-
+                    #####Create a scheduled task#####        
                     } else {
                         Write-Debug "$(Get-Date) (current script run time/date) is NOT greater than or equal to 48 hours minus employee start date: $($oStartDate).AddHours(-48)) so we are scheduling a task to create the user later."
                         $taskaction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -windowStyle Hidden -Command `"& $($ScriptFullName) -isScheduled -pSAM '$($SAM)' -pUPN '$($UPN)' -pFullName '$($FullName)' -pCompany '$($Company)' -pEmail '$($Email)' -pFirstName '$($FirstName)' -pLastName '$($LastName)' -pEndDate '$($EndDate)' -pCopyUser '$($copyuser)'`""
