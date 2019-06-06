@@ -139,20 +139,14 @@ Param(
 Write-Debug "Current parameter set: $($PSCmdlet.ParameterSetName)"
 
 $DebugPreference = "Continue" #comment this line out when you don't want to enable the debugging output.
-#$VerbosePreference = "Continue"
-#$ErrorActionPreference = "Stop"
 
 $LogFolder = "$env:userprofile\desktop\logs" #log file location.
 $TranscriptLog = -join($LogFolder,"\transcript.log")
 Start-Transcript -Path $TranscriptLog -Force
 $csvPath = "C:\temp\csvfiles\" #changeme - Location where the website is delivering the CVS files.  Only a directory path is needed, do not enter a full path to a specific CSV file.
 $ScriptFullName = -join($PSScriptRoot,"\$($MyInvocation.MyCommand.Name)") #Dynamically create this script's path and name for use later in scheduled task creation.
-<# Uncomment this block to get your $failedusers and $successUsers log writing functionality back.
-$a = 1;
-$b = 1;
-$failedUsers = @()
-$successUsers = @()
-#>
+$exchUri = '' #changeme
+$exchCred = '' #changeme
 
 
 function Format-CsvValue {
@@ -390,6 +384,15 @@ if (!($isScheduled)) {
                                 $newUserExch['Database'] = $copyMailProps.Database
                             }#=>if not $copyMailProps
                             try {
+                                $exchSession = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $exchUri -Credential $exchCred -ErrorAction 'Stop' -WarningAction 'Stop'
+                                Import-PSSession $exchSession -ErrorAction 'Stop' -WarningAction 'Stop'
+                            }
+                            catch {
+                                Write-Debug "Unable to connect to Exchange PowerShell due to the following error $($Error).  This is likely a fatal error for the entire email portion of the script."
+                                Write-CustomEventLog -message "Unable to connect to Exchange Powershell to create mailbox for user $($pFullName) due to the following error: `n $($Error) `n This is likely a fatal error for the entire email portion of the script.  This error should be remedied or no email boxes will be created."
+                                exit                    
+                            }
+                            try {
                                 $oNewExchUser = New-Mailbox @newUserExch -ErrorAction 'Stop' -WarningAction 'Stop'
                             }
                             catch {
@@ -488,108 +491,120 @@ else {
     #Checking to see if a user already exists in AD with the same email address...
     if (Get-AdUser -Filter {mail -eq $pEmail}) {
         Write-Debug "A user with email address $($pEmail) already exists in AD.  We cannot add this user."
-        #$failedUsers+= -join($pFullname,",",$pSAM,",","A user with email address $($pEmail) already exists in AD. Skipping this user.")
         Write-CustomEventLog -message "A user with email address $($pEmail) already exists in AD.  Skipping the creation of user $($pFullName) with SAM $($pSAM)" -entryType "Warning"
     }#=if get-aduser
     else {
         Write-Debug "No existing user in AD with email address $($pEmail) so we can create our user."
-        Write-Debug "Attempting to get properties of our user to copy from..."
-        $templateUser = Get-ADUser -filter {name -eq $pCopyUser} -Properties MemberOf,EmailAddress
+        Write-Debug "Attempting to get properties of our template user $($pCopyUser) to copy from..."
+
+        try {
+            $templateUser = Get-ADUser -filter {name -eq $pCopyUser} -Properties MemberOf,EmailAddress -ErrorAction 'Stop' -WarningAction 'Stop'    
+        }
+        catch {
+            Write-Debug "We were unable to find the template user $($copyUser) so we have to skip this new AD user and go to the next row in the CSV file."
+            #$failedUsers+= -join($Fullname,",",$SAM,",","We were unable to find the template user $($copyUser) so we have to skip creating new user $($FullName) and go to the next row in the CSV file.")
+            Write-CustomEventLog -message "We were unable to find the template user $($copyUser) when attempting to create new user $($FullName) with SAM $($SAM).  Fatal error.  Exiting script." -entryType "Error"
+            exit
+        }#=>try/catch $templateUser
+
         if (-not($templateUser)) {
             Write-Debug "We were unable to find the template user $($pCopyUser) so we cannot create teh new user $($pFullName)"
             #$failedUsers+= -join($pFullname,",",$pSAM,",","We were unable to find the template user $($pCopyUser) so we cannot create new user $($pFullName)")
-            Write-CustomEventLog -message "We are unable to find the template user $($pCopyUser) in AD.  Unable to create new user $($pFullName) due to this error." -entryType "Warning"
+            Write-CustomEventLog -message "We are unable to find the template user $($pCopyUser) in AD.  Unable to create new user $($pFullName) due to this error." -entryType "Error"
+
         } else {
             $Password = (ConvertTo-SecureString -AsPlainText 'Cloudcom.1' -Force)
             $oEndDate = [datetime]::ParseExact(($pEndDate).Trim(), "dd/MM/yyyy", $null) #This conerts to CSV 'EndDate' field from a string to a datetime object which is required for the New-AdUser cmdlet 'AccountExpirationDate' parameter.
+
             $newUserAD = @{
-                'SamAccountName'            = $pSAM
-                'UserPrincipalName'         = $pUPN
-                'Name'                      = $pFullName
                 'Company'                   = $pCompany
-                'EmailAddress'              = $pEmail
-                'GivenName'                 = $pFirstName
-                'Surname'                   = $pLastName
-                'AccountPassword'           = $Password
                 'AccountExpirationDate'     = $oEndDate
                 'ChangePasswordAtLogon'     = $true
                 'Enabled'                   = $true
-                'PasswordNeverExpires'      = $false  
+                'PasswordNeverExpires'      = $false
             }#=>$newUserAD
+
+            $newUserExch = @{
+                'SamAccountName'            = $pSAM
+                'UserPrincipalName'         = $pUPN
+                'Name'                      = $pFullName
+                'PrimarySmtpAddress'        = $pEmail
+                'FirstName'                 = $pFirstName
+                'LastName'                  = $pLastName
+                'Password'                  = $Password
+            }
 
             #Let's get the OU that our template user belongs to and apply that to our new user...
             $OU = ($templateUser.DistinguishedName).Substring(($templateUser.DistinguishedName).IndexOf(",")+1)
             Write-Debug "Our OU for new user $($pFullName) is $($OU) from copy of our template user $($pCopyUser) with OU of $($templateUser.DistinguishedName)"
 
-            #Let's update our $newUserAD properties with this OU...
-            $newUserAD['Path'] = $OU
+            #Let's update our $newUserExch properties with this OU...
+            $newUserExch['OrganizationalUnit'] = $OU
 
-            Write-Debug "Adding user $($pFullName) to AD with the following paramaters; `n $($newUserAD | Out-String)"
-            $oNewADUser = New-ADUser @newUserAD
-            if(-not($oNewADUser)) {
-                Write-Debug "Something went wrong with adding our new $($pFullName) user to AD."
-                #$failedUsers+= -join($pFullname,",",$pSAM,",","We were unable to add our new user $($pFullName) to AD. Moving to next user..")
-                Write-CustomEventLog -message "We were unable to add our new user $($pFullName) to AD using file $($csvFile.Fullname).  Moving to next user." -entryType "Warning"
-                continue
+            #Write-Debug "Adding user $($pFullName) to AD with the following paramaters; `n $($newUserAD | Out-String)"
+            Write-Debug "Creating user $($pFullName) in Exchange and AD using New-Mailbox cmdlet.  Passing parameters: `n $($newUserExch | Out-String)"
+
+            try {
+                Write-Debug "Running Get-Mailbox using identity parameter of $($templateUser.EmailAddress)"
+                $copyMailProps = Get-MailBox -Identity $($templateUser.EmailAddress) -ErrorAction 'Stop' -WarningAction 'Stop' | Select-Object AddressBookPolicy,Database
+            }
+            catch {
+                Write-Debug "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName) in AD or Exchange. Continuing to next user."
+                Write-CustomEventLog -message "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName) in AD or Exchange." -entryType "Warning"
+                exit
+            }#=>try/catch CopyMailProps
+            if (-not($copyMailProps)) {
+                Write-Debug "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email. Continuing to next user."
+                Write-CustomEventLog -message "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email." -entryType "Warning"
+                exit
             } else {
-                Write-Debug "We created our new user $($pFullName) in AD."
-                #$successUsers += -join($pFullName,",",$pSAM,",","Successfully created new AD user.")
-                Write-CustomEventLog -message "Created new user $($pFullName) in AD.  Values are below; `n $($newUserAD | Out-String)" -entrypType "Information"
-                #GitHub Issue #8 - adding user to Exchange and copying $templateUser mailbox properties for AddressBookPolicy and Database.
-                Write-Debug "Provisioning user $($FullName) in Exchange and assigning AddressBookPolicy and Database based on properties of our template user: $($copyUser)"
-                #Connecting to remote Exchange server.
-                Write-Debug "Attemping to connect to Exchange powershell connection."
-                try {
-                    $exchSession = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $exchUri -Credential $exchCred -ErrorAction 'Stop' -WarningAction 'Stop'
-                    Import-PSSession $exchSession -ErrorAction 'Stop' -WarningAction 'Stop'
-                }
-                catch {
-                    Write-Debug "Unable to connect to Exchange PowerShell due to the following error $($Error).  This is likely a fatal error for the entire email portion of the script."
-                    Write-CustomEventLog -message "Unable to connect to Exchange Powershell to create mailbox for user $($FullName) due to the following error: `n $($Error) `n This is likely a fatal error for the entire email portion of the script.  This error should be remedied or no email boxes will be created."
-                    Continue                    
-                }
-                
-                
-                #Add-PSSnapin Microsoft.Exchange.Management.PowerShell.SnapIn; #Adding PowerShell snap-ins for Exchange 2013 and 2016.
-                try {
-                    $copyMailProps = Get-MailBox -Identity $($templateUser.EmailAddress) -ErrorAction 'Stop' -WarningAction 'Stop' | Select-Object AddressBookPolicy,Database
-                }
-                catch {
-                    Write-Debug "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email. Continuing to next user."
-                    Write-CustomEventLog -message "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email." -entryType "Warning"
-                    Continue
-                }#=>try/catch CopyMailProps
-                if (-not($copyMailProps)) {
-                    Write-Debug "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email. Continuing to next user."
-                    Write-CustomEventLog -message "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email." -entryType "Warning"
-                    Continue
-                } else {
-                    Write-Debug "`$copyMailProps has returned; $($copyMailProps | Out-String)"
-                    try {
-                        Write-Debug "Running Enable-Mailbox using the paramaters of -idenity $($Email) -DisplayName $($FullName) -Database $($copyMailProps.Database)"
-                        Enable-Mailbox -Identity $Email -DisplayName $FullName -Database $($copyMailProps.Database) -ErrorAction 'Stop' -WarningAction 'Stop'
-                    }
-                    catch {
-                        Write-Debug "Unable to Enable-Mailbox for user $($FullName) with email $($Email).  Error message is: `n $($Error)"
-                        Write-CustomEventLog -message "Unable to Enable-Mailbox for user $($FullName) with email $($Email).  Error message is: `n $($Error)" -entryType 'Error'
-                        Continue
-                    } #=>try/catch Enable-Mailbox
-                    try {
-                        Write-Debug "Running Set-Mailbox usign paramaters -identity = $($Email) -PrimarySmtpAddress $($Email) -AddressbookPolicy $($copyMailProps.AddressBookPolicy)"
-                        Set-Mailbox -Identity $Email -EmailAddressPolicy $false -PrimarySmtpAddress $Email -AddressBookPolicy $($copyMailProps.AddressBookPolicy) -ErrorAction 'Stop' -WarningAction 'Stop'
-                    }
-                    catch {
-                        Write-Debug "Unable to Set-Mailbox for user $($FullName) with email $($Email).  Error message is: `n $($Error)"
-                        Write-CustomEventLog -message "Unable to Set-Mailbox for user $($FullName) with email $($Email).  Error message is: `n $($Error)" -entryType 'Error'
-                        Continue
-                    } #=>try/catch Set-Mailbox
-                }#=> if not $copyMailProps
-            }#=>if/else $oNewADUser
+                #We got our $copyMailProps properties for Database and AddressBookPolicy so we'll just add that to the $newUserExch hashtable.
+                Write-Debug "`$copyMailProps has returned; $($copyMailProps | Out-String)"
+                $newUserExch['AddressBookPolicy'] = $copyMailProps.AddressBookPolicy
+                $newUserExch['Database'] = $copyMailProps.Database
+            }#=>if not $copyMailProps
+            Write-Debug "Attemping to connect to Exchange powershell connection."
+            try {
+                $exchSession = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $exchUri -Credential $exchCred -ErrorAction 'Stop' -WarningAction 'Stop'
+                Import-PSSession $exchSession -ErrorAction 'Stop' -WarningAction 'Stop'
+            }
+            catch {
+                Write-Debug "Unable to connect to Exchange PowerShell due to the following error $($Error).  This is likely a fatal error for the entire email portion of the script."
+                Write-CustomEventLog -message "Unable to connect to Exchange Powershell to create mailbox for user $($FullName) due to the following error: `n $($Error) `n This is likely a fatal error for the entire email portion of the script.  This error should be remedied or no email boxes will be created."
+                Continue                    
+            }
+            try {
+                $oNewExchUser = New-Mailbox @newUserExch -ErrorAction 'Stop' -WarningAction 'Stop'
+            }
+            catch {
+                Write-Debug "Unable to create new user $($pFullName) using New-Mailbox.  Error message `n`n $Error"
+            }
+            if(-not($oNewExchUser)) {
+                Write-Debug "Something went wrong with adding our new $($pFullName) user to AD and Exchange. `n`n $error"
+                Write-CustomEventLog -message "We were unable to add our new user $($pFullName) to AD and Exchange. Full error details below; `n`n $($Error)." -entryType "Warning"
+                exit
+            }
+            #Adding user went well now let's update the AD properties for this user that can't be done using the New-Mailbox cmdlet.
+            Write-Debug "We created our new user $($pFullName) in AD and Exchange. Modifying AD user properties."
+            try {
+                $setUserADProps = Set-ADUser @newUserAD -ErrorAction 'Stop' -WarningAction 'Stop'
+            }
+            catch {
+                Write-Debug "Unable to modify AD user properties for $($FullName).  Continuing to next user."
+                Write-CustomEventLog -message "We were unable to modify AD properties for user $($FullName).  Full error is `n`n $($Error).`n`n User properties we want to modify are $($newUserAD | Out-String)"
+                exit
+            }#=> try/catch $setUserADProps
+            if(-not($setUserADProps)) {
+                Write-Debug "Unable to modify AD user properties for $($FullName).  Continuing to next user."
+                Write-CustomEventLog -message "We were unable to modify AD properties for user $($FullName).  Full error is `n`n $($Error).`n`n User properties we want to modify are $($newUserAD | Out-String)"
+                exit
+            } else {
+                Write-Debug "Successfully created new Exchange mailbox and modified AD properties for user"
+                Write-CustomEventLog -message "Successfully created new AD User and Exchange Mailbox for $($FullName).  AD and Exchange Details included below; `n`n $($newUserExch | Out-String) `n`n $($newUserAD | Out-String)" -entryType "Information"
+            }
         }#=>if/else $templateuser
     }#=>else get-ADUser
 }#=>if isScheduled
-#$failedUsers | ForEach-Object { "$($b).) $($_)"; $b++ } | out-file -FilePath  $LogFolder\FailedUsers.log -Append -Force -Verbose #write failed users.
-#$successUsers | ForEach-Object { "$($a).) $($_)"; $a++ } | out-file -FilePath  $LogFolder\successUsers.log -Append -Force -Verbose #write success users.
 Stop-Transcript
 $transcriptContent = Get-Content -Path $TranscriptLog -RAW
 Write-CustomEventLog -message "Finished running script. Full transaction log details are below; `n`n` $($transcriptContent)" -entryType "Information"
