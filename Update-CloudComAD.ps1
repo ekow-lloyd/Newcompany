@@ -408,7 +408,7 @@ if (!($isScheduled)) {
                             Write-Debug "We created our new user $($FullName) in AD and Exchange. Modifying AD user properties."
                             try {
                                 Write-Debug "Getting AD User $($SAM) and setting properties..."
-                                $setUserADProps = Get-ADUser -Identity $SAM | Set-ADUser @newUserAD -ErrorAction 'Stop' -WarningAction 'Stop'
+                                $setUserADProps = Get-ADUser -Identity $SAM | Set-ADUser @newUserAD -ErrorAction 'Stop' -WarningAction 'Stop' -PassThru
                             }
                             catch {
                                 Write-Debug "Unable to modify AD user properties for $($FullName).  Continuing to next user."
@@ -418,11 +418,10 @@ if (!($isScheduled)) {
                             }#=> try/catch $setUserADProps
                             if(-not($setUserADProps)) {
                                 Write-Debug "Unable to modify AD user properties for $($FullName).  Continuing to next user. Error and warnings displayed below: `n`n $SetADErr `n`n $SetADWarn"
-                                Write-Debug "`$setUserADProps has produced `n`n $($setUserADProps)"
                                 Write-CustomEventLog -message "We were unable to modify AD properties for user $($FullName).  Full error is `n`n $($Error).`n`n User properties we want to modify are $($newUserAD | Out-String)" -entryType "Error"
                                 continue
                             } else {
-                                Write-Debug "Successfully created new Exchange mailbox and modified AD properties for user"
+                                Write-Debug "Successfully created new Exchange mailbox and modified AD properties for user $($FullName)"
                                 Write-CustomEventLog -message "Successfully created new AD User and Exchange Mailbox for $($FullName).  AD and Exchange Details included below; `n`n $($newUserExch | Out-String) `n`n $($newUserAD | Out-String)" -entryType "Information"
                             }
                         }#=>else get-aduser
