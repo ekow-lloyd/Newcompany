@@ -321,7 +321,6 @@ if (!($isScheduled)) {
                             Write-Debug "No existing user in AD with email address $($email) so we can create our user."
 
                             $newUserAD = @{
-                                'Identity'                  = $SAM
                                 'Company'                   = $Company
                                 'AccountExpirationDate'     = $oEndDate
                                 'ChangePasswordAtLogon'     = $true
