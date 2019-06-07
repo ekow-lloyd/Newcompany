@@ -418,6 +418,7 @@ if (!($isScheduled)) {
                             }#=> try/catch $setUserADProps
                             if(-not($setUserADProps)) {
                                 Write-Debug "Unable to modify AD user properties for $($FullName).  Continuing to next user. Error and warnings displayed below: `n`n $SetADErr `n`n $SetADWarn"
+                                Write-Debug "`$setUserADProps has produced `n`n $($setUserADProps)"
                                 Write-CustomEventLog -message "We were unable to modify AD properties for user $($FullName).  Full error is `n`n $($Error).`n`n User properties we want to modify are $($newUserAD | Out-String)" -entryType "Error"
                                 continue
                             } else {
