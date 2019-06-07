@@ -321,6 +321,7 @@ if (!($isScheduled)) {
                             Write-Debug "No existing user in AD with email address $($email) so we can create our user."
 
                             $newUserAD = @{
+                                'Identity'                  = $SAM
                                 'Company'                   = $Company
                                 'AccountExpirationDate'     = $oEndDate
                                 'ChangePasswordAtLogon'     = $true
@@ -383,16 +384,7 @@ if (!($isScheduled)) {
                                 $newUserExch['AddressBookPolicy'] = $copyMailProps.AddressBookPolicy
                                 $newUserExch['Database'] = $copyMailProps.Database
                             }#=>if not $copyMailProps
-                            <#
-                            try {
-                                $exchSession = c -ConfigurationName Microsoft.Exchange -ConnectionUri $exchUri -Credential $exchCred -ErrorAction 'Stop' -WarningAction 'Stop'
-                                Import-PSSession $exchSession -ErrorAction 'Stop' -WarningAction 'Stop'
-                            }
-                            catch {
-                                Write-Debug "Unable to connect to Exchange PowerShell due to the following error $($Error).  This is likely a fatal error for the entire email portion of the script."
-                                Write-CustomEventLog -message "Unable to connect to Exchange Powershell to create mailbox for user $($FullName) due to the following error: `n $($Error) `n This is likely a fatal error for the entire email portion of the script.  This error should be remedied or no email boxes will be created." -entryType "Error"
-                                exit                    
-                            }#>
+
                             try {
                                 $oNewExchUser = New-Mailbox @newUserExch -ErrorAction 'Stop' -WarningAction 'Stop'
                             }
@@ -400,7 +392,7 @@ if (!($isScheduled)) {
                                 Write-Debug "Unable to create new user $($FullName) using New-Mailbox.  Error message `n`n $Error"
                             }
                             if(-not($oNewExchUser)) {
-                                Write-Debug "Something went wrong with adding our new $($FullName) user to AD and Exchange. `n`n $error"
+                                Write-Debug "Something went wrong with adding our new $($FullName) user to AD and Exchange."
                                 Write-CustomEventLog -message "We were unable to add our new user $($FullName) to AD and Exchange. Skipping this user.  Full error details below; `n`n $($Error)." -entryType "Warning"
                                 continue
                             }
@@ -408,11 +400,12 @@ if (!($isScheduled)) {
                             Write-Debug "We created our new user $($FullName) in AD and Exchange. Modifying AD user properties."
                             try {
                                 Write-Debug "Getting AD User $($SAM) and setting properties..."
-                                $setUserADProps = Get-ADUser -Identity $SAM | Set-ADUser @newUserAD -ErrorAction 'Stop' -WarningAction 'Stop' -PassThru
+                                #$setUserADProps = Get-ADUser -Identity $SAM | Set-ADUser @newUserAD -ErrorAction 'Stop' -WarningAction 'Stop' -PassThru
+                                $setUserADProps = Set-ADUser -Identity $($SAM) -Properties @newUserAD -ErrorAction 'Stop' -WarningAction 'Stop' -PassThru
                             }
                             catch {
                                 Write-Debug "Unable to modify AD user properties for $($FullName).  Continuing to next user."
-                                Write-Debug "`$setUserADProps has produced `n`n $($setUserADProps)"
+                                Write-Debug "`$setUserADProps has produced `n`n $($setUserADProps | Out-String)"
                                 Write-CustomEventLog -message "We were unable to modify AD properties for user $($FullName).  Full error is `n`n $($Error).`n`n User properties we want to modify are $($newUserAD | Out-String)" -entryType "Error"
                                 continue
                             }#=> try/catch $setUserADProps
