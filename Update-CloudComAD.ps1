@@ -321,7 +321,6 @@ if (!($isScheduled)) {
                             Write-Debug "No existing user in AD with email address $($email) so we can create our user."
 
                             $newUserAD = @{
-                                'Identity'                  = $SAM
                                 'Company'                   = $Company
                                 'AccountExpirationDate'     = $oEndDate
                                 'ChangePasswordAtLogon'     = $true
@@ -408,10 +407,12 @@ if (!($isScheduled)) {
                             #Adding user went well now let's update the AD properties for this user that can't be done using the New-Mailbox cmdlet.
                             Write-Debug "We created our new user $($FullName) in AD and Exchange. Modifying AD user properties."
                             try {
-                                $setUserADProps = Set-ADUser @newUserAD -ErrorAction 'Stop' -WarningAction 'Stop' -ErrrorVariable SetADErr -WarningVariable SetADWarn
+                                Write-Debug "Getting AD User $($SAM) and setting properties..."
+                                $setUserADProps = Get-ADUser -Identity $SAM | Set-ADUser @newUserAD -ErrorAction 'Stop' -WarningAction 'Stop'
                             }
                             catch {
                                 Write-Debug "Unable to modify AD user properties for $($FullName).  Continuing to next user."
+                                Write-Debug "`$setUserADProps has produced `n`n $($setUserADProps)"
                                 Write-CustomEventLog -message "We were unable to modify AD properties for user $($FullName).  Full error is `n`n $($Error).`n`n User properties we want to modify are $($newUserAD | Out-String)" -entryType "Error"
                                 continue
                             }#=> try/catch $setUserADProps
