@@ -399,7 +399,6 @@ if (!($isScheduled)) {
                             Write-Debug "We created our new user $($FullName) in AD and Exchange. Modifying AD user properties."
                             try {
                                 Write-Debug "Getting AD User $($SAM) and setting properties..."
-                                #$setUserADProps = Get-ADUser -Identity $SAM | Set-ADUser @newUserAD -ErrorAction 'Stop' -WarningAction 'Stop' -PassThru
                                 $setUserADProps = Set-ADUser -Identity $($SAM) -Properties @newUserAD -ErrorAction 'Stop' -WarningAction 'Stop' -PassThru
                             }
                             catch {
@@ -454,7 +453,7 @@ if (!($isScheduled)) {
                     }#=>$changeUserAD
                     try {
                         $oChangeADUser = Get-ADUser -Filter {mail -eq $Email} -ErrorAction 'Stop' -WarningAction 'Stop'
-                        Set-ADUser $oChangeADUser @changeUserAD -ErrorAction 'Stop' -WarningAction 'Stop'
+                        Set-ADUser $oChangeADUser @changeUserAD -ErrorAction 'Stop' -WarningAction 'Stop' -PassThru
                     }
                     catch {
                         Write-Debug "Unable to change user $($FullName) in AD. Error is `n`n $Error"
@@ -588,8 +587,7 @@ else {
             #Adding user went well now let's update the AD properties for this user that can't be done using the New-Mailbox cmdlet.
             Write-Debug "We created our new user $($pFullName) in AD and Exchange. Modifying AD user properties."
             try {
-                #$setUserADProps = Set-ADUser @newUserAD -ErrorAction 'Stop' -WarningAction 'Stop'
-                $setUserADProps = Get-ADUser -Identity $pSAM | Set-ADUser @newUserAD -ErrorAction 'Stop' -WarningAction 'Stop' -PassThru
+                $setUserADProps = Set-ADUser -Identity $($pSAM) -Properties @newUserAD -ErrorAction 'Stop' -WarningAction 'Stop' -PassThru
             }
             catch {
                 Write-Debug "Unable to modify AD user properties for $($pFullName).  Continuing to next user."
