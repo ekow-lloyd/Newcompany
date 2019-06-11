@@ -136,22 +136,16 @@ Param(
     [string]
     $pEmail
 )
-Write-Debug "Current parameter set: $($PSCmdlet.ParameterSetName)"
 
 $DebugPreference = "Continue" #comment this line out when you don't want to enable the debugging output.
+$WarningPreference = "Continue" #comment this out when testing is completed.
 
+Write-Debug "Current parameter set: $($PSCmdlet.ParameterSetName)"
 $LogFolder = "$env:userprofile\desktop\logs" #log file location.
 $TranscriptLog = -join($LogFolder,"\transcript.log")
 Start-Transcript -Path $TranscriptLog -Force
 $csvPath = "C:\testfc\" #changeme - Location where the website is delivering the CVS files.  Only a directory path is needed, do not enter a full path to a specific CSV file.
 $ScriptFullName = -join($PSScriptRoot,"\$($MyInvocation.MyCommand.Name)") #Dynamically create this script's path and name for use later in scheduled task creation.
-<#
-$exchUser = '' #changeme
-$exchPass = ConvertTo-SecureString -String "changme" -AsPlainText -Force
-$exchUri = '' #changeme
-$exchCred = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $exchUser, $exchPass
-#>
-
 
 function Format-CsvValue {
     [CmdletBinding()]
@@ -229,7 +223,13 @@ Function Write-CustomEventLog {
     }
 }
 
-Import-Module ActiveDirectory
+Write-Debug "Checking to see if ActiveDirectory PS module is imported."
+If(-not(Get-Moduule ActiveDirectory)) {
+    Write-Debug "ActiveDirectory PS Module not imported. Importing."
+    Import-Module ActiveDirectory
+} else {
+    Write-Debug "ActiveDirectory PS Module *is* imported."
+}
 
 if (!($isScheduled)) {
     Write-Debug "This is not a scheduled task so we can safely assume this is an initial read of a CSV file. Looking for all CSV files in $($csvPath) that are NOT readonly."
@@ -269,6 +269,7 @@ if (!($isScheduled)) {
                 Write-Debug "StartDate (CSV): $($User.startdate)"
                 Write-Debug "End Date (CSV): $($User.enddate)"
                 Write-Debug "Company (CSV): $($User.Company)"
+                Write-Debug "Email (CSV): $($user.Email)"
                 #=>debugging purposes.
         
                 #Let's properly format all the values in this *ROW* of the CSV. Trim() where necessary and change to Title Case where necessary - also create a new variable so we can use it later when creating the user in AD using the New-ADuser cmdlet.
@@ -366,7 +367,15 @@ if (!($isScheduled)) {
                                 $newUserExch['OrganizationalUnit'] = $OU
                             }#=>if/else not $templateuser
 
-                            #Write-Debug "Adding user $($FullName) to AD with the following paramaters; `n $($newUserAD | Out-String)"
+                            try {
+                                Add-PSSnapin "*Exchange*"
+                            }
+                            catch {
+                                Write-Debug "Unable to connect to Exchange PowerShell due to the following error $($Error).  This is likely a fatal error for the entire email portion of the script."
+                                Write-CustomEventLog -message "Unable to connect to Exchange Powershell to create mailbox for user $($FullName) due to the following error: `n $($Error) `n This is likely a fatal error for the entire email portion of the script.  This error should be remedied or no email boxes will be created." -entryType "Error"
+                                exit
+                            }
+
                             Write-Debug "Creating user in Exchange and AD using New-Mailbox cmdlet.  Passing parameters: `n $($newUserExch | Out-String)"
                             try {
                                 Write-Debug "Running Get-Mailbox using identity parameter of $($templateUser.EmailAddress)"
@@ -387,16 +396,7 @@ if (!($isScheduled)) {
                                 $newUserExch['AddressBookPolicy'] = $copyMailProps.AddressBookPolicy
                                 $newUserExch['Database'] = $copyMailProps.Database
                             }#=>if not $copyMailProps
-                            #New way to get Echange Management.
-                            try {
-                                Import-Module 'C:\Program Files\Microsoft\Exchange Server\V15\bin\RemoteExchange.ps1' -ErrorAction 'Stop'
-                                Connect-ExchangeServer -auto -ClientApplication:ManagementShell
-                            }
-                            catch {
-                                Write-Debug "Unable to connect to Exchange PowerShell due to the following error $($Error).  This is likely a fatal error for the entire email portion of the script."
-                                Write-CustomEventLog -message "Unable to connect to Exchange Powershell to create mailbox for user $($FullName) due to the following error: `n $($Error) `n This is likely a fatal error for the entire email portion of the script.  This error should be remedied or no email boxes will be created." -entryType "Error"
-                                exit                    
-                            }
+
                             try {
                                 $oNewExchUser = New-Mailbox @newUserExch -ErrorAction 'Stop' -WarningAction 'Stop'
                             }
@@ -551,9 +551,15 @@ else {
             #Let's update our $newUserExch properties with this OU...
             $newUserExch['OrganizationalUnit'] = $OU
 
-            #Write-Debug "Adding user $($pFullName) to AD with the following paramaters; `n $($newUserAD | Out-String)"
-            Write-Debug "Creating user $($pFullName) in Exchange and AD using New-Mailbox cmdlet.  Passing parameters: `n $($newUserExch | Out-String)"
 
+            try {
+                Add-PSSnapin "*Exchange*"
+            }
+            catch {
+                Write-Debug "Unable to connect to Exchange PowerShell due to the following error $($Error).  This is likely a fatal error for the entire email portion of the script."
+                Write-CustomEventLog -message "Unable to connect to Exchange Powershell to create mailbox for user $($FullName) due to the following error: `n $($Error) `n This is likely a fatal error for the entire email portion of the script.  This error should be remedied or no email boxes will be created." -entryType "Error"
+                exit
+            }
             try {
                 Write-Debug "Running Get-Mailbox using identity parameter of $($templateUser.EmailAddress)"
                 $copyMailProps = Get-MailBox -Identity $($templateUser.EmailAddress) -ErrorAction 'Stop' -WarningAction 'Stop' | Select-Object AddressBookPolicy,Database
@@ -574,16 +580,7 @@ else {
                 $newUserExch['AddressBookPolicy'] = $copyMailProps.AddressBookPolicy
                 $newUserExch['Database'] = $copyMailProps.Database
             }#=>if not $copyMailProps
-            Write-Debug "Attemping to connect to Exchange powershell connection."
-            try {
-                Import-Module 'C:\Program Files\Microsoft\Exchange Server\V15\bin\RemoteExchange.ps1' -ErrorAction 'Stop'
-                Connect-ExchangeServer -auto -ClientApplication:ManagementShell
-            }
-            catch {
-                Write-Debug "Unable to connect to Exchange PowerShell due to the following error $($Error).  This is likely a fatal error for the entire email portion of the script."
-                Write-CustomEventLog -message "Unable to connect to Exchange Powershell to create mailbox for user $($pFullName) due to the following *fatal* error: `n $($Error) `n`n This error should be remedied or no email boxes will be created." -entryType "Error"
-                exit                    
-            }
+
             try {
                 $oNewExchUser = New-Mailbox @newUserExch -ErrorAction 'Stop' -WarningAction 'Stop'
             }
