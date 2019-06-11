@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
 Create a new or modify an existing CloudCom user in the CloudCom AD.
-
+TEST
 .DESCRIPTION
 Create a new or modify an existing CloudCom user in the CloudCom AD.
 Two parameter sets ("Init" and "Scheduled") exist.  This is to make it easier to call the script when it's initially called (when you want to read CSV files) or when it's called as part of a scheduled task.
@@ -412,7 +412,7 @@ if (!($isScheduled)) {
                             Write-Debug "We created our new user $($FullName) in AD and Exchange. Modifying AD user properties."
                             try {
                                 Write-Debug "Getting AD User $($SAM) and setting properties..."
-                                $setUserADProps = Get-ADUser -Identity $SAM | Set-ADUser @newUserAD -ErrorAction 'Stop' -WarningAction 'Stop' -PassThru
+                                $setUserADProps = Get-ADUser -Identity $($SAM) | Set-ADUser @newUserAD -ErrorAction 'Stop' -WarningAction 'Stop' -PassThru
                             }
                             catch {
                                 Write-Debug "Unable to modify AD user properties for $($FullName).  Continuing to next user."
