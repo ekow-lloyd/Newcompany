@@ -224,7 +224,7 @@ Function Write-CustomEventLog {
 }
 
 Write-Debug "Checking to see if ActiveDirectory PS module is imported."
-If(-not(Get-Moduule ActiveDirectory)) {
+If(-not(Get-Module ActiveDirectory)) {
     Write-Debug "ActiveDirectory PS Module not imported. Importing."
     Import-Module ActiveDirectory
 } else {
@@ -275,7 +275,7 @@ if (!($isScheduled)) {
                 $StartDate = Format-CsvValue -sValue $User.startdate #trim only.
                 $EndDate = Format-CsvValue -sValue $User.enddate #trim only.
                 $Company = Format-CsvValue -sValue $User.company #trim only since company names are rather specific on how they're spelled out.
-                
+
                 if ($csvFile.Name -like "NU*") {
                     #This csvFile that we're working on seems to be a New User request as defined by the "NU" in the CSV file name so we add more details.
                     $copyUser = -join(($User.copyuser).Trim()," ", ($User.copyuserLN).Trim()) #We need the fullname of the user we're copying from.
