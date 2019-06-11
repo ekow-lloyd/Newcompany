@@ -286,7 +286,7 @@ if (!($isScheduled)) {
                 $SAM = (-join($FirstName,".",$LastName)).ToLower()
                 $Username = (-join($FirstName,".",$LastName)).ToLower() #this assumes that your usernames have a naming convention of firstname.lastname and makes everything lowercase.
                 $DNSroot = "@$((Get-ADDomain).dnsroot)"
-                $UPN = -join($Username, $dnsroot)
+                $UPN = $Email
                 $Password = (ConvertTo-SecureString -AsPlainText 'Cloudcom.1' -Force)
                 $oStartDate = [datetime]::ParseExact(($User.StartDate).Trim(), "dd/MM/yyyy", $null) #This converts the CSV "startdate" field from a string to a datetime object so we can use it for comparison.
                 $oEndDate = [datetime]::ParseExact(($User.EndDate).Trim(), "dd/MM/yyyy", $null) #This conerts to CSV 'EndDate' field from a string to a datetime object which is required for the New-AdUser cmdlet 'AccountExpirationDate' parameter.
