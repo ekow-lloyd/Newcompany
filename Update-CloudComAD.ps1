@@ -365,10 +365,12 @@ if (!($isScheduled)) {
 
                 #Let's build other necessary variables that we want to use as parameters for the New-ADuser cmdlet out of the information provided by the CSV file or other sources...
                 $FullName = -join ($($FirstName), " ", $($LastName)) #join $Firstname and $Lastname and a space to get FullName
-                $SAM = ( -join (($FirstName).Substring(0, 1), $LastName)).ToLower() #this assumes that your SAM naming convention is firstinitialLASTNAME and makes everything lowercase.
+                #$SAM = ( -join (($FirstName).Substring(0, 1), $LastName)).ToLower() #this assumes that your SAM naming convention is firstinitialLASTNAME and makes everything lowercase.
+                $SAM = ( -join ($FirstName,".","$LastName")).ToLower()
                 $Username = ( -join ($FirstName, ".", $LastName)).ToLower() #this assumes that your usernames have a naming convention of firstname.lastname and makes everything lowercase.
                 $DNSroot = "@$((Get-ADDomain).dnsroot)"
-                $UPN = -join ($Username, $dnsroot)
+                #$UPN = -join ($Username, $dnsroot)
+                $UPN = $Email
                 $Password = (ConvertTo-SecureString -AsPlainText 'Cloudcom.1' -Force)
                 $oStartDate = [datetime]::ParseExact(($User.StartDate).Trim(), "dd/MM/yyyy", $null) #This converts the CSV "startdate" field from a string to a datetime object so we can use it for comparison.
                 $oEndDate = [datetime]::ParseExact(($User.EndDate).Trim(), "dd/MM/yyyy", $null) #This conerts to CSV 'EndDate' field from a string to a datetime object which is required for the New-AdUser cmdlet 'AccountExpirationDate' parameter.
@@ -507,7 +509,7 @@ if (!($isScheduled)) {
                                 Write-Debug "Unable to modify AD user properties for $($FullName).  Continuing to next user."
                                 Write-Debug "`$setUserADProps has produced `n`n $($setUserADProps | Out-String)"
                                 Write-CustomEventLog -message "We were unable to modify AD properties for user $($FullName).  Full error is `n`n $($Error).`n`n User properties we want to modify are $($newUserAD | Out-String)" -entryType "Error"
-                                Send-CustomMailMessage -mailType "Error" -appendSubject "- $($FullName)"
+                                #Send-CustomMailMessage -mailType "Error" -appendSubject "- $($FullName)"
                                 continue
                             }#=> try/catch $setUserADProps
                             if (-not($setUserADProps)) {
@@ -518,7 +520,7 @@ if (!($isScheduled)) {
                             else {
                                 Write-Debug "Successfully created new Exchange mailbox and modified AD properties for user $($FullName)"
                                 Write-CustomEventLog -message "Successfully created new AD User and Exchange Mailbox for $($FullName).  AD and Exchange Details included below; `n`n $($newUserExch | Out-String) `n`n $($newUserAD | Out-String)" -entryType "Information"
-                                Send-CustomMailMessage -mailType "Success" -appendSubject "- $($FullName)"
+                                #Send-CustomMailMessage -mailType "Success" -appendSubject "- $($FullName)"
                             }
                         }#=>else get-aduser
 
