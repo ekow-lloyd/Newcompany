@@ -386,7 +386,7 @@ if (!($isScheduled)) {
                                 $newUserExch['Database'] = $copyMailProps.Database
                             }#=>if not $copyMailProps
                             try {
-                                $exchSession = c -ConfigurationName Microsoft.Exchange -ConnectionUri $exchUri -Credential $exchCred -ErrorAction 'Stop'
+                                $exchSession = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $exchUri -Credential $exchCred -ErrorAction 'Stop'
                                 Import-PSSession $exchSession -ErrorAction 'Stop'
                             }
                             catch {
