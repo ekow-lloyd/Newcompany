@@ -145,8 +145,10 @@ $Global:TranscriptLog = -join ($LogFolder, "\transcript.log")
 Start-Transcript -Path $Global:TranscriptLog -Force
 $csvPath = "C:\temp\csvfiles\" #changeme - Location where the website is delivering the CVS files.  Only a directory path is needed, do not enter a full path to a specific CSV file.
 $ScriptFullName = -join ($PSScriptRoot, "\$($MyInvocation.MyCommand.Name)") #Dynamically create this script's path and name for use later in scheduled task creation.
+$ExchUser = '' #changeme
+$ExchPass = '' #changeme
 $ExchURI = '' #changeme
-$ExchCred = '' #changeme
+$ExchCred = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $ExchUser, $ExchPass
 
 
 function Format-CsvValue {
@@ -655,7 +657,6 @@ else {
                 Write-CustomEventLog -message "Unable to connect to Exchange Powershell to create mailbox for user $($FullName) due to the following error: `n $($Error) `n This is likely a fatal error for the entire email portion of the script.  This error should be remedied or no email boxes will be created." -entryType "Error"
                 exit                    
             }
-
             try {
                 Write-Debug "Running Get-Mailbox using identity parameter of $($templateUser.EmailAddress)"
                 $copyMailProps = Get-MailBox -Identity $($templateUser.EmailAddress) -ErrorAction 'Stop' -WarningAction 'Stop' | Select-Object AddressBookPolicy, Database
