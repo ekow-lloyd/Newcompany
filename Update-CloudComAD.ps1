@@ -451,22 +451,14 @@ if (!($isScheduled)) {
                             #Write-Debug "Adding user $($FullName) to AD with the following paramaters; `n $($newUserAD | Out-String)"
                             Write-Debug "Creating user in Exchange and AD using New-Mailbox cmdlet.  Passing parameters: `n $($newUserExch | Out-String)"
                             try {
-                                try {
-                                    $exchSession = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $exchUri -Credential $exchCred -ErrorAction 'Stop' -WarningAction 'Stop'
-                                    $exchSession = c -ConfigurationName Microsoft.Exchange -ConnectionUri $exchUri -Credential $exchCred -ErrorAction 'Stop' -WarningAction 'Stop'
-                                    Import-PSSession $exchSession -ErrorAction 'Stop' -WarningAction 'Stop'
-                                    Import-PSSession $exchSession -ErrorAction 'Stop' -WarningAction 'Stop'
-                                }
-                                }
-                                catch {
-                                catch {
-                                    Write-Debug "Unable to connect to Exchange PowerShell due to the following error $($Error).  This is likely a fatal error for the entire email portion of the script."
-                                    Write-Debug "Unable to connect to Exchange PowerShell due to the following error $($Error).  This is likely a fatal error for the entire email portion of the script."
-                                    Write-CustomEventLog -message "Unable to connect to Exchange Powershell to create mailbox for user $($FullName) due to the following error: `n $($Error) `n This is likely a fatal error for the entire email portion of the script.  This error should be remedied or no email boxes will be created." -entryType "Error"
-                                    Write-CustomEventLog -message "Unable to connect to Exchange Powershell to create mailbox for user $($FullName) due to the following error: `n $($Error) `n This is likely a fatal error for the entire email portion of the script.  This error should be remedied or no email boxes will be created." -entryType "Error"
-                                    exit                    
-                                    exit                    
-                                }
+                                $exchSession = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $exchUri -Credential $exchCred -ErrorAction 'Stop' -WarningAction 'Stop'
+                                Import-PSSession $exchSession -ErrorAction 'Stop' -WarningAction 'Stop'
+                            }
+                            catch {
+                                Write-Debug "Unable to connect to Exchange PowerShell due to the following error $($Error).  This is likely a fatal error for the entire email portion of the script."
+                                Write-CustomEventLog -message "Unable to connect to Exchange Powershell to create mailbox for user $($FullName) due to the following error: `n $($Error) `n This is likely a fatal error for the entire email portion of the script.  This error should be remedied or no email boxes will be created." -entryType "Error"
+                                exit                    
+                            }
                             try {
                                 Write-Debug "Running Get-Mailbox using identity parameter of $($templateUser.EmailAddress)"
                                 $copyMailProps = Get-MailBox -Identity $($templateUser.EmailAddress) -ErrorAction 'Stop' -WarningAction 'Stop' | Select-Object AddressBookPolicy, Database
@@ -655,22 +647,14 @@ else {
             #Write-Debug "Adding user $($pFullName) to AD with the following paramaters; `n $($newUserAD | Out-String)"
             Write-Debug "Creating user $($pFullName) in Exchange and AD using New-Mailbox cmdlet.  Passing parameters: `n $($newUserExch | Out-String)"
             try {
-                try {
-                    $exchSession = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $exchUri -Credential $exchCred -ErrorAction 'Stop' -WarningAction 'Stop'
-                    $exchSession = c -ConfigurationName Microsoft.Exchange -ConnectionUri $exchUri -Credential $exchCred -ErrorAction 'Stop' -WarningAction 'Stop'
-                    Import-PSSession $exchSession -ErrorAction 'Stop' -WarningAction 'Stop'
-                    Import-PSSession $exchSession -ErrorAction 'Stop' -WarningAction 'Stop'
-                }
-                }
-                catch {
-                catch {
-                    Write-Debug "Unable to connect to Exchange PowerShell due to the following error $($Error).  This is likely a fatal error for the entire email portion of the script."
-                    Write-Debug "Unable to connect to Exchange PowerShell due to the following error $($Error).  This is likely a fatal error for the entire email portion of the script."
-                    Write-CustomEventLog -message "Unable to connect to Exchange Powershell to create mailbox for user $($FullName) due to the following error: `n $($Error) `n This is likely a fatal error for the entire email portion of the script.  This error should be remedied or no email boxes will be created." -entryType "Error"
-                    Write-CustomEventLog -message "Unable to connect to Exchange Powershell to create mailbox for user $($FullName) due to the following error: `n $($Error) `n This is likely a fatal error for the entire email portion of the script.  This error should be remedied or no email boxes will be created." -entryType "Error"
-                    exit                    
-                    exit                    
-                }
+                $exchSession = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $exchUri -Credential $exchCred -ErrorAction 'Stop' -WarningAction 'Stop'
+                Import-PSSession $exchSession -ErrorAction 'Stop' -WarningAction 'Stop'
+            }
+            catch {
+                Write-Debug "Unable to connect to Exchange PowerShell due to the following error $($Error).  This is likely a fatal error for the entire email portion of the script."
+                Write-CustomEventLog -message "Unable to connect to Exchange Powershell to create mailbox for user $($FullName) due to the following error: `n $($Error) `n This is likely a fatal error for the entire email portion of the script.  This error should be remedied or no email boxes will be created." -entryType "Error"
+                exit                    
+            }
 
             try {
                 Write-Debug "Running Get-Mailbox using identity parameter of $($templateUser.EmailAddress)"
