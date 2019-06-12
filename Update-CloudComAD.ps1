@@ -327,7 +327,7 @@ Function Send-CustomMail{
             Send-MailMessage @mailProperties -ErrorAction 'Stop'
         }
         catch {
-            Throw $_.Exception.Message
+            Throw "We are unable to send our mail message due to the following error: `n`n $($_.Exception.Message)"
         }
         Return "Mail message sent."
     }
