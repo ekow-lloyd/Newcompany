@@ -308,6 +308,14 @@ if (!($isScheduled)) {
                         Write-Debug "$(Get-Date) (current script run time/date) is greater than or equal to 48 hours minus employee start date: $($oStartDate).AddHours(-48)) so we are creating the user immediately."
 
                         #Checking to see if a user already exists in AD with the same email address...
+                        try {
+                            Get-ADUser -Filter {mail -eq $Email -ErrorAction 'Stop'}
+                        }
+                        catch {
+                            Write-Debug "Unable to check if user $($FullName) already exists in AD.  Get-ADUser returned an error when doing a lookup. $($Error)"
+                            Write-CustomEventLog -message "Unable o check if user $($FullName) already exists in AD.  Get-ADUser returned an error when doing a lookup. $($Error)"
+                            continue
+                        }
                         if (Get-AdUser -Filter {mail -eq $Email}) {
                             Write-Debug "A user with email address $($email) already exists in AD.  We cannot add this user."
                             Write-CustomEventLog -message "When attempting to create user $($FullName) [SAM: $($SAM)] we found another user that exists in AD using the same email address of $($email). We have to skip this user." -entryType "Warning"
@@ -494,6 +502,12 @@ if (!($isScheduled)) {
 else {
     Write-Debug "This is a scheduled task to create a new user.  Let's build our request and create the user."
     #Checking to see if a user already exists in AD with the same email address...
+    try {
+        Get-ADUser -Filter {mail -eq $pEmail}
+    }
+    catch {
+        
+    }
     if (Get-AdUser -Filter {mail -eq $pEmail}) {
         Write-Debug "A user with email address $($pEmail) already exists in AD.  We cannot add $($pFullName) with $($pEmail)."
         Write-CustomEventLog -message "A user with email address $($pEmail) already exists in AD.  Skipping the creation of user $($pFullName) with SAM $($pSAM)" -entryType "Warning"
