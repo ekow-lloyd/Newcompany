@@ -84,6 +84,9 @@ Outputs a transaction log to the user's Desktop ($env:username\desktop\) and wri
 
 .\New-CloudComUser.ps1
 
+.NOTES
+There is NO NEED for a user to use any of the paramaters that start with "p".  These are used by the script. If you want to schedule this script as a task (automated) then you just need to point the scheduled task to this script file with no paramters just like the example.
+
 #>
 #Requires -RunAsAdministrator
 
@@ -602,6 +605,7 @@ if (!($isScheduled)) {
             }#=>ForEach $user !$isScheduled
 
             Write-Debug "Renaming our current csv file $($csvFile.FullName) and addding a .done extension. Also making the file read-only."
+            Send-CustomMail -setMailType "WARNING"
             Rename-Item -Path $csvFile.FullName -NewName "$($csvFile.FullName).done" -Force
             Set-ItemProperty -Path "$($csvFile.FullName).done" -name IsReadOnly -Value $true
 
