@@ -269,7 +269,7 @@ if (!($isScheduled)) {
                 }
 
                 #debugging purposes...
-                Write-Debug "First Name (CSV): $($User.Firstname) `n`n Last Name (CSV): $($User.Lastname) `n`n StartDate (CSV): $($User.startdate) `n`n End Date (CSV): $($User.enddate) `n`n Company (CSV): $($User.Company) `n`n Email (CSV): $($user.Email)"
+                Write-Debug "Found the following information in the CSV File: `n`n First Name (CSV): $($User.Firstname) `n`n Last Name (CSV): $($User.Lastname) `n`n StartDate (CSV): $($User.startdate) `n`n End Date (CSV): $($User.enddate) `n`n Company (CSV): $($User.Company) `n`n Email (CSV): $($user.Email)"
                 #=>debugging purposes.
                 
         
@@ -298,7 +298,7 @@ if (!($isScheduled)) {
                 $oEndDate = [datetime]::ParseExact(($User.EndDate).Trim(), "dd/MM/yyyy", $null) #This conerts to CSV 'EndDate' field from a string to a datetime object which is required for the New-AdUser cmdlet 'AccountExpirationDate' parameter.
 
                 #debugging purposes...
-                Write-Debug "`$FirstName:  $($FirstName) `n`n `$LastName: $($LastName) `n`n `$Email: $($Email) `n`n `$StartDate: $($StartDate) `n`n `$EndDate: $($EndDate) `n`n `$copyUser: $($copyUser) `n`n `$FullName: $($FullName) `n`n `$SAM: $($SAM) `n`n `$Username: $($Username) `n`n `$DNSRoot: $($DNSroot) `n`n `$UPN: $($UPN) `n`n `$oStartDate: $($oStartDate)"
+                Write-Debug "Script created these properties: `n`n `$FirstName:  $($FirstName) `n`n `$LastName: $($LastName) `n`n `$Email: $($Email) `n`n `$StartDate: $($StartDate) `n`n `$EndDate: $($EndDate) `n`n `$copyUser: $($copyUser) `n`n `$FullName: $($FullName) `n`n `$SAM: $($SAM) `n`n `$Username: $($Username) `n`n `$DNSRoot: $($DNSroot) `n`n `$UPN: $($UPN) `n`n `$oStartDate: $($oStartDate)"
                 #=>debugging puproses
 
                 #Now, let's check the user's startdate as listed in the CSV file.  If startdate is within 48 hours of today's (Get-Date) date we'll create the user directly in AD.  Otherwise, we'll schedule a task to create the user at a later date.
