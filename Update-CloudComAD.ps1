@@ -185,8 +185,6 @@ function Format-CsvValue {
     }
 } #=>Format-CsvValue
 
-
-
 Function Write-CustomEventLog {
     [CmdletBinding()]
     param(
