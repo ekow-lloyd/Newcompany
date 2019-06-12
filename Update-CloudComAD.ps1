@@ -374,6 +374,7 @@ if (!($isScheduled)) {
                             catch {
                                 Write-Debug "Unable to connect to Exchange PowerShell due to the following error $($_.Exception.Message).  This is likely a fatal error for the entire email portion of the script."
                                 Write-CustomEventLog -message "Unable to connect to Exchange Powershell to create mailbox for user $($FullName) due to the following error: `n`n $($_.Exception.Message) `n`n This is likely a fatal error for the entire email portion of the script.  This error should be remedied or no email boxes will be created." -entryType "Error"
+                                Stop-Transcript
                                 exit
                             }#=>Add-PSSnapin
 
@@ -499,6 +500,7 @@ if (!($isScheduled)) {
     }#=>if $csvFiles
     else {
         Write-Debug "No CSV files found in $($csvPath) that require processing.  Nothing to do this round."
+        Stop-Transcript
         exit
     }#=>else $csvFiles
 }#=>if !$isScheduled
@@ -525,12 +527,14 @@ else {
         catch {
             Write-Debug "We were unable to find the template user $($copyUser) so we have to skip this new AD user and go to the next row in the CSV file."
             Write-CustomEventLog -message "We were unable to find the template user $($copyUser) when attempting to create new user $($FullName) with SAM $($SAM).  Fatal error.  Exiting script." -entryType "Error"
+            Stop-Transcript
             exit
         }#=>try/catch $templateUser
 
         if (-not($templateUser)) {
             Write-Debug "We were unable to find the template user $($pCopyUser) so we cannot create the new user $($pFullName)"
             Write-CustomEventLog -message "We are unable to find the template user $($pCopyUser) in AD.  Unable to create new user $($pFullName) due to this error." -entryType "Error"
+            Stop-Transcript
             exit
 
         } else {
@@ -578,6 +582,7 @@ else {
             catch {
                 Write-Debug "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($pFullName) in AD or Exchange. Continuing to next user."
                 Write-CustomEventLog -message "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($pFullName) in AD or Exchange." -entryType "Warning"
+                Stop-Transcript
                 exit
             }#=>try/catch CopyMailProps
 
@@ -597,11 +602,13 @@ else {
             }
             catch {
                 Write-Debug "Unable to create new user $($pFullName) using New-Mailbox.  Error message `n`n $($_.Exception.Message)"
+                Stop-Transcript
                 exit
             }
             if(-not($oNewExchUser)) {
                 Write-Debug "Something went wrong with adding our new $($pFullName) user to AD and Exchange. `n`n $($_.Exception.Message)"
                 Write-CustomEventLog -message "We were unable to add our new user $($pFullName) to AD and Exchange. Full error details below; `n`n $($_.Exception.Message)." -entryType "Warning"
+                Stop-Transcript
                 exit
             }
             #Adding user went well now let's update the AD properties for this user that can't be done using the New-Mailbox cmdlet.
@@ -612,11 +619,13 @@ else {
             catch {
                 Write-Debug "Unable to modify AD user properties for $($pFullName).  Continuing to next user."
                 Write-CustomEventLog -message "We were unable to modify AD properties for user $($pFullName).  Full error is `n`n $($_.Exception.Message).`n`n User properties we want to modify are $($newUserAD | Out-String)" -entryType "Error"
+                Stop-Transcript
                 exit
             }#=> try/catch $setUserADProps
             if(-not($setUserADProps)) {
                 Write-Debug "Unable to modify AD user properties for $($pFullName).  Continuing to next user."
                 Write-CustomEventLog -message "We were unable to modify AD properties for user $($pFullName).  Full error is `n`n $($_.Exception.Message).`n`n User properties we want to modify are $($newUserAD | Out-String)" -entryType "Error"
+                Stop-Transcript
                 exit
             } else {
                 Write-Debug "Successfully created new Exchange mailbox and modified AD properties for user"
