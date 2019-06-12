@@ -405,10 +405,12 @@ if (!($isScheduled)) {
                             }
                             catch {
                                 Write-Debug "Unable to create new user $($FullName) using New-Mailbox.  Error message: `n`n $($_.Exception.Message)"
+                                Write-CustomEventLog -message "We were unable to add our new user $($FullName) to AD and Exchage.  Skipping this user.  Full error details below: `n`n $($_.Exception.Message)" -entryType "Warning"
+                                continue
                             }
                             if(-not($oNewExchUser)) {
                                 Write-Debug "Something went wrong with adding our new $($FullName) user to AD and Exchange. `n`n $($_.Exception.Message)"
-                                Write-CustomEventLog -message "We were unable to add our new user $($FullName) to AD and Exchange. Skipping this user.  Full error details below; `n`n $($_.Exception.Message)." -entryType "Warning"
+                                Write-CustomEventLog -message "`$oNewExchUser returned false for some reason which means we were unable to add our new user $($FullName) to AD and Exchange. Skipping this user." -entryType "Warning"
                                 continue
                             }
                             #Adding user went well now let's update the AD properties for this user that can't be done using the New-Mailbox cmdlet.
