@@ -235,10 +235,9 @@ if (!($isScheduled)) {
     Write-Debug "This is not a scheduled task so we can safely assume this is an initial read of a CSV file. Looking for all CSV files in $($csvPath) that are NOT readonly."
     #since we are anticipating *dynamically* named CSV files let's find all CSV files we have yet to process.
     $csvFiles = Get-ChildItem -Path $csvPath -Filter "*.csv" -Attributes !readonly+!directory
-    $csvCount = ($csvFiles | Measure-Object).Count
-    Write-Debug "Found $($csvCount) CSV files in $($csvPath) to process: `n`n `$csvFiles: $($csvFiles)"
     if ($csvFiles) {
-        Write-Debug "Found unprocessed CSV files..."
+        $csvCount = ($csvFiles | Measure-Object).Count
+        Write-Debug "Found $($csvCount) unprocessed CSV file(s): $($csvFiles)"
         foreach ($csvFile in $csvFiles) {
             Write-Debug "Processing CSV file $($csvFile.FullName)"
             try {
@@ -329,8 +328,9 @@ if (!($isScheduled)) {
                                 'Password'                  = $Password
                             }
 
-                            Write-Debug "Attempting to get properties of our user to copy from..."
+                            Write-Debug "Running Get-ADUser against $($copyUser) so we can set `$templateUser to copy their properties."
                             try {
+                                
                                 $templateUser = Get-ADUser -filter {name -eq $copyUser} -Properties MemberOf,EmailAddress -ErrorAction 'Stop' -WarningAction 'Stop'    
                             }
                             catch {
@@ -346,6 +346,7 @@ if (!($isScheduled)) {
                                 Write-CustomEventLog -message "We were unable to find the template user $($copyUser) when attempting to create new user $($FullName) with SAM $($SAM).  Skipping the creation of this user." -entryType "Warning"
                                 continue #move to next CSV row.
                             } else {
+                                Write-Debug "Get-ADUser against $($copyUser) success.  Our `$templateUser is now set."
                                 #Let's get the OU that our template user belongs to and apply that to our new user...
                                 $OU = ($templateUser.DistinguishedName).Substring(($templateUser.DistinguishedName).IndexOf(",")+1)
                                 Write-Debug "Our OU for new user $($FullName) is $($OU) from copy of our template user $($copyUser) with OU of $($templateUser.DistinguishedName)"
@@ -360,18 +361,18 @@ if (!($isScheduled)) {
                                 Write-Debug "Unable to connect to Exchange PowerShell due to the following error $($Error).  This is likely a fatal error for the entire email portion of the script."
                                 Write-CustomEventLog -message "Unable to connect to Exchange Powershell to create mailbox for user $($FullName) due to the following error: `n $($Error) `n This is likely a fatal error for the entire email portion of the script.  This error should be remedied or no email boxes will be created." -entryType "Error"
                                 exit
-                            }
+                            }#=>Add-PSSnapin
 
-                            Write-Debug "Creating user in Exchange and AD using New-Mailbox cmdlet.  Passing parameters: `n $($newUserExch | Out-String)"
                             try {
                                 Write-Debug "Running Get-Mailbox using identity parameter of $($templateUser.EmailAddress)"
                                 $copyMailProps = Get-MailBox -Identity $($templateUser.EmailAddress) -ErrorAction 'Stop' -WarningAction 'Stop' | Select-Object AddressBookPolicy,Database
-                            }
+                            }#=>try $copyMailProps
                             catch {
                                 Write-Debug "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName) in AD or Exchange. Continuing to next user."
                                 Write-CustomEventLog -message "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName) in AD or Exchange." -entryType "Warning"
                                 Continue
                             }#=>try/catch CopyMailProps
+
                             if (-not($copyMailProps)) {
                                 Write-Debug "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email. Continuing to next user."
                                 Write-CustomEventLog -message "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email." -entryType "Warning"
@@ -383,6 +384,7 @@ if (!($isScheduled)) {
                                 $newUserExch['Database'] = $copyMailProps.Database
                             }#=>if not $copyMailProps
 
+                            Write-Debug "Creating user in Exchange and AD using New-Mailbox cmdlet.  Passing parameters: `n $($newUserExch | Out-String)"
                             try {
                                 $oNewExchUser = New-Mailbox @newUserExch -ErrorAction 'Stop' -WarningAction 'Stop'
                             }
@@ -395,7 +397,7 @@ if (!($isScheduled)) {
                                 continue
                             }
                             #Adding user went well now let's update the AD properties for this user that can't be done using the New-Mailbox cmdlet.
-                            Write-Debug "We created our new user $($FullName) in AD and Exchange. Modifying AD user properties."
+                            Write-Debug "We created our new user $($FullName) in AD and Exchange."
                             try {
                                 Write-Debug "Getting AD User $($SAM) and setting properties..."
                                 $setUserADProps = Get-ADUser -Identity $($SAM) | Set-ADUser @newUserAD -ErrorAction 'Stop' -WarningAction 'Stop' -PassThru
