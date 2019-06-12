@@ -309,11 +309,11 @@ if (!($isScheduled)) {
 
                         #Checking to see if a user already exists in AD with the same email address...
                         try {
-                            Get-ADUser -Filter {mail -eq $Email -ErrorAction 'Stop'}
+                            Get-ADUser -Filter {mail -eq $Email} -ErrorAction 'Stop'
                         }
                         catch {
                             Write-Debug "Unable to check if user $($FullName) already exists in AD.  Get-ADUser returned an error when doing a lookup. $($Error)"
-                            Write-CustomEventLog -message "Unable o check if user $($FullName) already exists in AD.  Get-ADUser returned an error when doing a lookup. $($Error)"
+                            Write-CustomEventLog -message "Unable o check if user $($FullName) already exists in AD.  Get-ADUser returned an error when doing a lookup. $($Error)" -entryType "Warning"
                             continue
                         }
                         if (Get-AdUser -Filter {mail -eq $Email}) {
