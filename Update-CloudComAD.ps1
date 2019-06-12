@@ -267,7 +267,12 @@ if (!($isScheduled)) {
                 #debugging purposes...
                 Write-Debug "Found the following information in the CSV File: `n`n First Name (CSV): $($User.Firstname) `n`n Last Name (CSV): $($User.Lastname) `n`n StartDate (CSV): $($User.startdate) `n`n End Date (CSV): $($User.enddate) `n`n Company (CSV): $($User.Company) `n`n Email (CSV): $($user.Email)"
                 #=>debugging purposes.
-        
+                
+                #We should really clear all variables in the loop to make sure they get the new information on the next loop in ForEach ($user in $users)
+                $myvars = "FirstName","LastName","Email","StartDate","EndDate","Company","FullName","SAM","Username","DNSroot","UPN","oStartDate","oEndDate","templateUser","copyUser","OU","newUserAD","newUserExch","copyMailProps","oNewUserExch","setUserADProps"
+                Remove-Variable -Name $myvars
+                #=>clear variables
+
                 #Let's properly format all the values in this *ROW* of the CSV. Trim() where necessary and change to Title Case where necessary - also create a new variable so we can use it later when creating the user in AD using the New-ADuser cmdlet.
                 $FirstName = Format-CsvValue -isTitleCase $true -sValue $User.FirstName #trim and title case
                 $LastName = Format-CsvValue -isTitleCase $true -sValue $User.LastName #trim and title case.
@@ -286,14 +291,14 @@ if (!($isScheduled)) {
                 $FullName = -join($($FirstName)," ",$($LastName)) #join $Firstname and $Lastname and a space to get FullName
                 $SAM = ( -join ($FirstName,".","$LastName")).ToLower()
                 $Username = (-join($FirstName,".",$LastName)).ToLower() #this assumes that your usernames have a naming convention of firstname.lastname and makes everything lowercase.
-                $DNSroot = "@$((Get-ADDomain).dnsroot)"
+                
                 $UPN = $Email
                 $Password = (ConvertTo-SecureString -AsPlainText 'Cloudcom.1' -Force)
                 $oStartDate = [datetime]::ParseExact(($User.StartDate).Trim(), "dd/MM/yyyy", $null) #This converts the CSV "startdate" field from a string to a datetime object so we can use it for comparison.
                 $oEndDate = [datetime]::ParseExact(($User.EndDate).Trim(), "dd/MM/yyyy", $null) #This conerts to CSV 'EndDate' field from a string to a datetime object which is required for the New-AdUser cmdlet 'AccountExpirationDate' parameter.
 
                 #debugging purposes...
-                Write-Debug "Script created these properties: `n`n `$FirstName:  $($FirstName) `n`n `$LastName: $($LastName) `n`n `$Email: $($Email) `n`n `$StartDate: $($StartDate) `n`n `$EndDate: $($EndDate) `n`n `$copyUser: $($copyUser) `n`n `$FullName: $($FullName) `n`n `$SAM: $($SAM) `n`n `$Username: $($Username) `n`n `$DNSRoot: $($DNSroot) `n`n `$UPN: $($UPN) `n`n `$oStartDate: $($oStartDate)"
+                Write-Debug "Script created these properties: `n`n `$FirstName:  $($FirstName) `n`n `$LastName: $($LastName) `n`n `$Email: $($Email) `n`n `$StartDate: $($StartDate) `n`n `$EndDate: $($EndDate) `n`n `$copyUser: $($copyUser) `n`n `$FullName: $($FullName) `n`n `$SAM: $($SAM) `n`n `$Username: $($Username) `n`n `$UPN: $($UPN) `n`n `$oStartDate: $($oStartDate)"
                 #=>debugging puproses
 
                 #Now, let's check the user's startdate as listed in the CSV file.  If startdate is within 48 hours of today's (Get-Date) date we'll create the user directly in AD.  Otherwise, we'll schedule a task to create the user at a later date.
