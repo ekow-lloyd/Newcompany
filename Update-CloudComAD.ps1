@@ -290,7 +290,7 @@ Function Send-CustomMail{
                 #SMTP requires auth so we configure the credentials.
                 $SMTPUser = '' #CHANGEME - only change me if your SMTP server requires authentication - $anonymousSMTP = $false
                 $SMTPPass = ConvertTo-SecureString 'SuperSecretPassword' -AsPlainText -Force #CHANGEME - only change 'SuperSecretPassword' if your SMTP server requires authentication.
-                $SMTPCreds = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $SMTPUser, $SMTPPass #DO NOT MODIFY
+                $SMTPCreds = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $SMTPUser, $SMTPPass -ErrorAction 'SilentlyContinue' #DO NOT MODIFY
                 $mailProperties['Credential'] = $SMTPCreds
             }#=>if -not $anonymousSMTP
 
