@@ -142,6 +142,8 @@ $TranscriptLog = "$($env:userprofile)\desktop\logs\transcript.log"
 Start-Transcript -Path $TranscriptLog -Force
 $csvPath = "C:\testfc\" #changeme - Location where the website is delivering the CVS files.  Only a directory path is needed, do not enter a full path to a specific CSV file.
 $ScriptFullName = -join($PSScriptRoot,"\$($MyInvocation.MyCommand.Name)") #Dynamically create this script's path and name for use later in scheduled task creation.
+$Global:ConfigLocation = "$env:appdata\Update-CloudComAD.config" #DO NOT MODIFY UNLESS YOU UNDERSTAND HOW THE MS DPAPI WORKS.
+$Global:sendmail = $true #if you want the script to send email notifications set to $true, else set to $false
 
 function Format-CsvValue {
     [CmdletBinding()]
@@ -214,6 +216,117 @@ Function Write-CustomEventLog {
             "Error" { [int]$EventID = 3000}
         }
         Write-EventLog -LogName Application -Source 'Update-CloudComAD' -EntryType $entryType -EventId $EventID -Message $message
+    }
+}
+Function Add-ConfigFile {
+    <#
+    .SYNOPSIS
+        Create a custom config file.
+    .DESCRIPTION
+        Create a custom config file to *securely* store credential objects on the local machine using Microsoft's DPAPI.
+        Microsoft's DPAPI relies on built-in encryption/decryption keys based on the USER that has run the script.
+        When the config file is created it stores a file in the user's $env:appdata folder named Update-CloudComAD.config - only that user can decrypt the securestrings stored there.
+    #>
+}
+
+Function Send-CustomMail{
+    <#
+    .SYNOPSIS
+        Sends an email to specified users/groups
+    .DESCRIPTION
+        If enabled this function will send an email notification containing the results of this script.
+    .PARAMETER setMailType
+        [REQUIRED][STRING]
+        Sets the email subject based on the type of message being sent.  Options are Success, Information, Warning, Error
+    .PARAMETER prependBody
+        [OPTIONAL][STRING]
+        Allows you to customize the body.  By default the body of the message is only specific notices of errors or warnings that the script produces and may include the transcipt log.
+    .PARAMETER appendSubject
+        [OPTIONAL][STRING]
+        Allows you to customize the subject.  By default the subject of the message is created by the script - adding this parameter and the string will add the string to the end of the pre-defined subject line.
+    .INPUTS
+        Reads the transaction log file and imports it into the body of the message.
+    .OUTPUTS
+        Sends an email message.
+    .NOTES
+        You will also need to fill in the variables for $mailProperties in the "Begin" block of this function.
+    #>
+
+    [CmdletBinding()]
+    Param(
+        #Sets the email subject line based on the type specified below.
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("Success","Information","Warning","Error")]
+        [string]
+        $setMailType,
+        #Allows custom text to the body of the email message.  This string will prepend (be at the beginning of) the message body.
+        [Parameter(Mandatory=$false)]
+        [string]
+        $prependBody,
+        #Allows custom text to the subject of the email message.  This string will append (be at the end of) the message subject.
+        [Parameter(Mandatory=$false)]
+        [string]
+        $appendSubject
+    )
+
+    Begin {
+        if($Global:sendmail) {
+            #$sendmail is set to true so we'll continue with the processing of the script.
+            $anonymousSMTP = $false #CHANGEME - set to $true if your SMTP server allows anonymous authentication.  Else, you need to set to $false and configure the $SMTPUser and $SMTPPass variables below.
+            $mailProperties = @{
+                SmtpServer = '' #CHANGEME - hostname or IP of the SMTP server.
+                Port = '25' #CHANGEME - defaults to port 25 for SMTP.  Will need to be changed if you use SMTPS
+                UseSsl = '' #CHANGEME - set to $true if your SMTP server uses SMTPS. Don't forget to change the port # as well. 
+                From = '' #CHANGME - the email address in which the message will be sent from.
+                To = '' #CHANGEME - the email address(es) in which to send the message.
+                Subject = '' #DO NOT MODIFY
+                Body = '' #DO NOT MODIFY
+            }
+
+            if (-not($anonymousSMTP)) {
+                #SMTP requires auth so we configure the credentials.
+                $SMTPUser = '' #CHANGEME - only change me if your SMTP server requires authentication - $anonymousSMTP = $false
+                $SMTPPass = ConvertTo-SecureString 'SuperSecretPassword' -AsPlainText -Force #CHANGEME - only change 'SuperSecretPassword' if your SMTP server requires authentication.
+                $SMTPCreds = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $SMTPUser, $SMTPPass #DO NOT MODIFY
+                $mailProperties['Credential'] = $SMTPCreds
+            }#=>if -not $anonymousSMTP
+
+            #create our default subject lines.
+            switch ($setMailType) {
+                "Success" {
+                    $mailProperties['Subject'] = "[SUCCESS] Update-CloudComAD Script Run $($appendSubject)"
+                }
+                "Information" {
+                    $mailProperties['Subject'] = "[INFORMATION] Update-CloudComAD Script Run $($appendSubject)"
+                }
+                "Warning" {
+                    $mailProperties['Subject'] = "[WARNING] Update-CloudComAD Script Run $($appendSubject)"
+                }
+                "Error" {
+                    $mailProperties['Subject'] = "[ERROR] Update-CloudComAD Script Run $($appendSubject)"
+                }
+            }
+
+            #create our deafult body.
+            $getTranscript = Get-Content -Path $Global:ConfigLocation 
+            $mailProperties['Body'] = "$($prependBody) `n`n Please review the details of the script run below. `n`n $($getTranscript)"
+
+        } else {
+            #$sendmail is set to false so we'll exit the function and not send an email.
+            Write-Debug "`$sendMail is set to false. Not sending any email notifications."
+            return
+        }#=>else $global:sendmail
+    }
+
+    Process {
+        #Time to actually send the mail.
+        try {
+            Send-MailMessage @mailProperties -ErrorAction 'Stop'
+        }
+        catch {
+            Throw $_.Exception.Message
+        }
+        Return "Mail message sent."
     }
 }
 
