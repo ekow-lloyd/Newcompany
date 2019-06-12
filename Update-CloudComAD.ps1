@@ -270,7 +270,7 @@ if (!($isScheduled)) {
                 
                 #We should really clear all variables in the loop to make sure they get the new information on the next loop in ForEach ($user in $users)
                 $myvars = "FirstName","LastName","Email","StartDate","EndDate","Company","FullName","SAM","Username","DNSroot","UPN","oStartDate","oEndDate","templateUser","copyUser","OU","newUserAD","newUserExch","copyMailProps","oNewUserExch","setUserADProps"
-                Remove-Variable -Name $myvars
+                Remove-Variable -Name $myvars -ErrorAction 'SilentlyContinue'
                 #=>clear variables
 
                 #Let's properly format all the values in this *ROW* of the CSV. Trim() where necessary and change to Title Case where necessary - also create a new variable so we can use it later when creating the user in AD using the New-ADuser cmdlet.
