@@ -84,10 +84,6 @@ Outputs a transaction log to the user's Desktop ($env:username\desktop\) and wri
 
 .\New-CloudComUser.ps1
 
-.NOTES
-
-5/30/2019 - Updated to use $templateUser mail properties as well for "AddressBookPolicy" and "Database". Review GitHub issue #8.
-
 #>
 #Requires -RunAsAdministrator
 
