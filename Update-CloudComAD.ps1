@@ -141,8 +141,8 @@ $DebugPreference = "Continue" #comment this line out when you don't want to enab
 $WarningPreference = "Continue" #comment this out when testing is completed.
 
 Write-Debug "Current parameter set: $($PSCmdlet.ParameterSetName)"
-$LogFolder = "$env:userprofile\desktop\logs" #log file location.
-$TranscriptLog = -join($LogFolder,"\transcript.log")
+#$LogFolder = "$env:userprofile\desktop\logs\" #log file location.
+$TranscriptLog = "$($env:userprofile)\desktop\logs\transcript.log"
 Start-Transcript -Path $TranscriptLog -Force
 $csvPath = "C:\testfc\" #changeme - Location where the website is delivering the CVS files.  Only a directory path is needed, do not enter a full path to a specific CSV file.
 $ScriptFullName = -join($PSScriptRoot,"\$($MyInvocation.MyCommand.Name)") #Dynamically create this script's path and name for use later in scheduled task creation.
