@@ -242,8 +242,6 @@ if (!($isScheduled)) {
                 $Users = Import-CSV $csvFile.FullName
             }
             catch {
-                
-                
                 #We need to check if the csvFiles count is greater than 1. If it is, we can move to the next file. If it's not, we need to throw an error and exit this script.
                 if ($csvCount -gt '1') {
                     Write-CustomEventLog -message "Unable to import CSV file: $($csvFile.FullName). This is a fatal error for this csv file. Continuing to next file. Error message is: `n`n $($Error[0].Exception.Message)" -entryType "Warning"
@@ -252,10 +250,8 @@ if (!($isScheduled)) {
                 } else {
                     Write-CustomEventLog -message "Unable to import CSV file: $($csvFile.FullName). This is a fatal error for this csv file and this script. Exiting script. Error message is: `n`n $($Error[0].Exception.Message)" -entryType "Error"
                     Write-Debug "Unable to import our CSV file: $($csvFile.FullName). This is a fatal error for this CSV file and this script. Exiting script. Error message is: $Error[0].Exception.Message"
-                    Throw $csvFile.FullName
+                    Continue
                 }
-                
-
             }#=> try $Users
         
             #imported our CSV file properly.  Let's process the file for new users...
@@ -271,7 +267,6 @@ if (!($isScheduled)) {
                 #debugging purposes...
                 Write-Debug "Found the following information in the CSV File: `n`n First Name (CSV): $($User.Firstname) `n`n Last Name (CSV): $($User.Lastname) `n`n StartDate (CSV): $($User.startdate) `n`n End Date (CSV): $($User.enddate) `n`n Company (CSV): $($User.Company) `n`n Email (CSV): $($user.Email)"
                 #=>debugging purposes.
-                
         
                 #Let's properly format all the values in this *ROW* of the CSV. Trim() where necessary and change to Title Case where necessary - also create a new variable so we can use it later when creating the user in AD using the New-ADuser cmdlet.
                 $FirstName = Format-CsvValue -isTitleCase $true -sValue $User.FirstName #trim and title case
@@ -377,15 +372,16 @@ if (!($isScheduled)) {
                                 exit
                             }#=>Add-PSSnapin
 
+                            Write-Debug "Running Get-Mailbox using identity parameter of $($templateUser.EmailAddress)"
                             try {
-                                Write-Debug "Running Get-Mailbox using identity parameter of $($templateUser.EmailAddress)"
+                                
                                 $copyMailProps = Get-MailBox -Identity $($templateUser.EmailAddress) -ErrorAction 'Stop' -WarningAction 'Stop' | Select-Object AddressBookPolicy,Database
                             }#=>try $copyMailProps
                             catch {
                                 Write-Debug "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName) in AD or Exchange. Continuing to next user."
                                 Write-CustomEventLog -message "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName) in AD or Exchange." -entryType "Warning"
                                 Continue
-                            }#=>try/catch CopyMailProps
+                            }#=>catch $copyMailProps
 
                             if (-not($copyMailProps)) {
                                 Write-Debug "Unable to Get-Mailbox for template user $($templateUser.EmailAddress) which means we are unable to activate $($FullName)'s Exchange Email. Continuing to next user."
@@ -403,7 +399,7 @@ if (!($isScheduled)) {
                                 $oNewExchUser = New-Mailbox @newUserExch -ErrorAction 'Stop' -WarningAction 'Stop'
                             }
                             catch {
-                                Write-Debug "Unable to create new user $($FullName) using New-Mailbox.  Error message `n`n $Error"
+                                Write-Debug "Unable to create new user $($FullName) using New-Mailbox.  Error message: `n`n $Error"
                             }
                             if(-not($oNewExchUser)) {
                                 Write-Debug "Something went wrong with adding our new $($FullName) user to AD and Exchange. `n`n $error"
