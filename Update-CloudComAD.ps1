@@ -261,9 +261,17 @@ if (!($isScheduled)) {
             #imported our CSV file properly.  Let's process the file for new users...
             ForEach ($User in $Users){
 
+                #the email address in the CSV file is considered the 'primary key' when doing AD lookups.  We should check the email address in the CSV to make sure it's at least filled out. If not, we'll error out the script.
+                if([string]::IsNullOrEmpty($user.Email)){
+                    Write-Debug "The CSV file $($csvFile.FullName) contains an empty email address for user $($user.FirstName) $($user.LastName) we need to skip this user and subsequently this CSV file."
+                    Write-CustomEventLog -message "The CSV file $($csvFile.FullName) contains an empty email address for user $($user.FirstName) $($user.LastName) we need to skip this user and subsequently this CSV file." -entryType "Warning"
+                    continue
+                }
+
                 #debugging purposes...
                 Write-Debug "First Name (CSV): $($User.Firstname) `n`n Last Name (CSV): $($User.Lastname) `n`n StartDate (CSV): $($User.startdate) `n`n End Date (CSV): $($User.enddate) `n`n Company (CSV): $($User.Company) `n`n Email (CSV): $($user.Email)"
                 #=>debugging purposes.
+                
         
                 #Let's properly format all the values in this *ROW* of the CSV. Trim() where necessary and change to Title Case where necessary - also create a new variable so we can use it later when creating the user in AD using the New-ADuser cmdlet.
                 $FirstName = Format-CsvValue -isTitleCase $true -sValue $User.FirstName #trim and title case
