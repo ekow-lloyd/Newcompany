@@ -141,8 +141,8 @@ $WarningPreference = "Continue" #comment this out when testing is completed.
 
 Write-Debug "Current parameter set: $($PSCmdlet.ParameterSetName)"
 #$LogFolder = "$env:userprofile\desktop\logs\" #log file location.
-$TranscriptLog = "$($env:userprofile)\desktop\logs\transcript.log"
-Start-Transcript -Path $TranscriptLog -Force
+$Global:TranscriptLog = "$($env:userprofile)\desktop\logs\transcript.log"
+Start-Transcript -Path $Global:TranscriptLog -Force
 $csvPath = "C:\testfc\" #changeme - Location where the website is delivering the CVS files.  Only a directory path is needed, do not enter a full path to a specific CSV file.
 $ScriptFullName = -join($PSScriptRoot,"\$($MyInvocation.MyCommand.Name)") #Dynamically create this script's path and name for use later in scheduled task creation.
 $Global:ConfigLocation = "$env:appdata\Update-CloudComAD.config" #DO NOT MODIFY UNLESS YOU UNDERSTAND HOW THE MS DPAPI WORKS.
@@ -311,7 +311,7 @@ Function Send-CustomMail{
             }
 
             #create our deafult body.
-            $getTranscript = Get-Content -Path $Global:ConfigLocation 
+            $getTranscript = Get-Content -Path $Global:TranscriptLog
             $mailProperties['Body'] = "$($prependBody) `n`n Please review the details of the script run below. `n`n $($getTranscript)"
 
         } else {
@@ -748,5 +748,5 @@ else {
     }#=>else get-ADUser
 }#=>if isScheduled
 Stop-Transcript
-$transcriptContent = Get-Content -Path $TranscriptLog -RAW
+$transcriptContent = Get-Content -Path $Global:TranscriptLog -RAW
 Write-CustomEventLog -message "Finished running script. Full transaction log details are below; `n`n` $($transcriptContent)" -entryType "Information"
