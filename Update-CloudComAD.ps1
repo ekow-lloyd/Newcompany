@@ -289,7 +289,7 @@ if (!($isScheduled)) {
 
                 #Let's build other necessary variables that we want to use as parameters for the New-ADuser cmdlet out of the information provided by the CSV file or other sources...
                 $FullName = -join($($FirstName)," ",$($LastName)) #join $Firstname and $Lastname and a space to get FullName
-                $SAM = ( -join ($FirstName,".","$LastName")).ToLower()
+                $SAM = ( -join ($FirstName,".","$LastName","-$($Company)")).ToLower()
                 $Username = (-join($FirstName,".",$LastName)).ToLower() #this assumes that your usernames have a naming convention of firstname.lastname and makes everything lowercase.
                 
                 $UPN = $Email
