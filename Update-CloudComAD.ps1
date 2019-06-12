@@ -265,7 +265,7 @@ if (!($isScheduled)) {
                 #=>debugging purposes.
                 
                 #We should really clear all variables in the loop to make sure they get the new information on the next loop in ForEach ($user in $users)
-                $myvars = "FirstName","LastName","Email","StartDate","EndDate","Company","FullName","SAM","Username","DNSroot","UPN","oStartDate","oEndDate","templateUser","copyUser","OU","newUserAD","newUserExch","copyMailProps","oNewUserExch","setUserADProps"
+                $myvars = "FirstName","LastName","Email","StartDate","EndDate","Company","FullName","SAM","Username","DNSroot","UPN","oStartDate","oEndDate","templateUser","copyUser","OU","newUserAD","newUserExch","copyMailProps","oNewUserExch","setUserADProps","oChangeUserAD","changeUserAD"
                 Remove-Variable -Name $myvars -ErrorAction 'SilentlyContinue'
                 #=>clear variables
 
